@@ -1,4 +1,4 @@
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 BOUNDARY_TEST_PROMPT = ChatPromptTemplate.from_messages([
     ("system", "你是一个边界值测试专家。"),

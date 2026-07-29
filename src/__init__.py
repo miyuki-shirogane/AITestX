@@ -1,2 +1,2 @@
-from .generator import TestCaseGenerator
-from .retriever import TestCaseRetriever
+from .generator.generator import TestCaseGenerator
+from .generator.retriever import TestCaseRetriever

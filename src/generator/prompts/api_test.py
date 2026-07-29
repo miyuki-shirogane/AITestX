@@ -1,4 +1,4 @@
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 API_TEST_PROMPT = ChatPromptTemplate.from_messages([
     ("system", "你是一个资深测试工程师，擅长编写pytest测试用例。"),

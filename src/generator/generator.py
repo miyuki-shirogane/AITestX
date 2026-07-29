@@ -7,7 +7,7 @@ class TestCaseGenerator:
         self.retriever = TestCaseRetriever()
 
     def generate(self, api_doc: str) -> str:
-        reference_cases = self.retriever.retrieve_similar_cases(api_doc, n_results=3)
+        reference_cases = self.retriever.retrieve_similar_cases(api_doc, n_results=2)
         if reference_cases:
             return generate_with_rag(api_doc, reference_cases)
         else:

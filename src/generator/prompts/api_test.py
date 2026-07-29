@@ -14,11 +14,17 @@ resp = client.post("/api/user/login", data={{"username": "xxx", "password": "xxx
 ```
 
 断言规范：
-- 使用 hamcrest 的 assert_that，不要用原生 assert
-- 检查 dict 中是否存在某个 key，用 has_entry("key", anything())，不要用 has_key()
+- 检查 dict 的 key-value 用 has_entries({{"code": 0}})，等值比较直接传值，不要包 equal_to()
+- 只在不等于/大于/包含等复杂匹配时才用显式 matcher: has_entries({{"code": greater_than(0)}})
+- 检查 dict 中是否存在某个 key 用 has_entries({{"code": anything()}})
 - 检查嵌套数据用 jmespath.search("data.token", resp)
 ```python
 import jmespath
+# 简单等值：直接传值
+assert_that(resp, has_entries({{"code": 0}}))
+# 复杂匹配：用 matcher
+assert_that(resp, has_entries({{"code": greater_than(0)}}))
+# 嵌套提取
 token = jmespath.search("data.token", resp)
 assert_that(token, not_none())
 ```"""),
@@ -54,9 +60,11 @@ resp = client.post("/api/user/login", data={{"username": "xxx"}})
 ```
 
 断言规范：
-- 检查 dict 中是否存在某个 key，用 has_entry("key", anything())，不要用 has_key()
+- 检查 dict 的 key-value 用 has_entries({{"code": 0}})，等值比较直接传值，不要包 equal_to()
+- 复杂匹配时才用显式 matcher: has_entries({{"code": greater_than(0)}})
+- 检查 dict 中是否存在某个 key 用 has_entries({{"code": anything()}})
 - 检查嵌套数据用 jmespath.search("data.token", resp)
-- 参考用例中常用的断言模式：equal_to、has_entries、contains_inanyorder、all_of、is_、not_none
+- 参考用例中常用：equal_to、has_entries、contains_inanyorder、all_of、is_、not_none
 ```python
 import jmespath
 token = jmespath.search("data.token", resp)

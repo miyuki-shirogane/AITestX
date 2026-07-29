@@ -7,6 +7,7 @@ langgraph>=0.1.0
 # 向量数据库
 chromadb>=0.5.0
 langchain-huggingface>=0.1.0
+sentence-transformers>=5.0.0
 
 # 测试框架
 pytest>=8.0.0
@@ -28,3 +29,4 @@ deepeval>=0.21.0
 # 工具
 python-dotenv>=1.0.0
 requests>=2.31.0
+scikit-learn>=1.0.0

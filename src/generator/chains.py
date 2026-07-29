@@ -12,6 +12,8 @@ def get_llm(temperature=0.2):
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
         temperature=temperature,
+        timeout=120,
+        max_retries=2,
     )
 
 

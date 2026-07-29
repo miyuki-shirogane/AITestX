@@ -1,0 +1,29 @@
+# 核心框架
+langchain>=0.2.0
+langchain-openai>=0.1.0
+langgraph>=0.1.0
+
+# 向量数据库
+chromadb>=0.5.0
+langchain-huggingface>=0.1.0
+
+# 测试框架
+pytest>=8.0.0
+pytest-cov>=5.0.0
+
+# 浏览器自动化
+playwright>=1.45.0
+
+# Web界面
+streamlit>=1.35.0
+
+# RESTful API
+fastapi>=0.110.0
+uvicorn>=0.29.0
+
+# 评估
+deepeval>=0.21.0
+
+# 工具
+python-dotenv>=1.0.0
+requests>=2.31.0

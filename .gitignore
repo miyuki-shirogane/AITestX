@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.idea/
+.knowledge_base/
+chroma_db/
+output/
+reports/*
+!reports/.gitkeep
+.pytest_cache/
+.coverage
+coverage.json
+.report.json
+node_modules/
+dist/

@@ -1,8 +1,10 @@
-# 查询地图地点列表
+# 上传文件
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/locations
+POST https://solgrid-friend-api.rivtower.cc/api/v1/file/upload
 
-所属模块: Locations
+所属模块: File
+
+## 请求体
 
 ## 响应
 
@@ -13,7 +15,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/locations
   "message": "string",
   "code": 0,
   "errorData": [],
-  "data": []
+  "data": "string"
 }
 ```
 

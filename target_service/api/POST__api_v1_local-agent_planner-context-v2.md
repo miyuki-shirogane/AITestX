@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 查询当前登录用户的 LocalAgent Planner V2 上下文。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/local-agent/planner-context-v2
 
-所属模块: Users
+所属模块: LocalAgents
 
 ## 响应
 

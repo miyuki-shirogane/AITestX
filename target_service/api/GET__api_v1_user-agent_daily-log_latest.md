@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 查询当前登录用户的 UserAgent 最新每日日志。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+GET https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/daily-log/latest
 
-所属模块: Users
+所属模块: UserAgents
 
 ## 响应
 

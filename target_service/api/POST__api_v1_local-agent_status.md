@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 查询当前登录用户的 LocalAgent 状态。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/local-agent/status
 
-所属模块: Users
+所属模块: LocalAgents
 
 ## 响应
 

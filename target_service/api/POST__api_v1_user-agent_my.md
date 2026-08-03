@@ -1,8 +1,8 @@
-# 查询地图地点列表
+# 查询当前用户AI搭档信息
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/locations
+POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/my
 
-所属模块: Locations
+所属模块: UserAgents
 
 ## 响应
 
@@ -13,7 +13,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/locations
   "message": "string",
   "code": 0,
   "errorData": [],
-  "data": []
+  "data": "string"
 }
 ```
 

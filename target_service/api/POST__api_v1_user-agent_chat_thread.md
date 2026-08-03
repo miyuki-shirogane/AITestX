@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 获取或创建用户与AI搭档聊天线程
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/chat/thread
 
-所属模块: Users
+所属模块: UserAgentChat
 
 ## 响应
 

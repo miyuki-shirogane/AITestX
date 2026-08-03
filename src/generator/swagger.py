@@ -5,11 +5,7 @@ import yaml
 
 
 def parse_swagger(source: str) -> list[dict]:
-    """解析 Swagger/OpenAPI 文档，返回每个接口的 Markdown 描述
-
-    source 可以是 URL 或本地文件路径
-    返回: [{"path": "POST /api/login", "doc": "markdown...", "tag": "用户"}, ...]
-    """
+    """解析 Swagger/OpenAPI 文档，返回每个接口的 Markdown 描述"""
     spec = _load_spec(source)
     base_path = spec.get("servers", [{}])[0].get("url", "").rstrip("/")
     if not base_path and "host" in spec:
@@ -22,7 +18,7 @@ def parse_swagger(source: str) -> list[dict]:
             if method not in methods:
                 continue
             op = methods[method]
-            doc = _build_markdown(op, method.upper(), path, base_path)
+            doc = _build_markdown(op, method.upper(), path, base_path, spec)
             tag = (op.get("tags") or ["未分类"])[0]
             results.append({"path": f"{method.upper()} {path}", "doc": doc, "tag": tag})
 
@@ -43,7 +39,17 @@ def _load_spec(source: str) -> dict:
     return yaml.safe_load(content)
 
 
-def _build_markdown(op: dict, method: str, path: str, base_path: str) -> str:
+def _resolve_ref(ref: str, spec: dict) -> dict:
+    if not ref or not ref.startswith("#/"):
+        return {}
+    parts = ref.lstrip("#/").split("/")
+    current = spec
+    for part in parts:
+        current = current.get(part, {})
+    return current if isinstance(current, dict) else {}
+
+
+def _build_markdown(op: dict, method: str, path: str, base_path: str, spec: dict) -> str:
     summary = op.get("summary", "")
     description = op.get("description", "")
     tag = (op.get("tags") or ["未分类"])[0]
@@ -67,7 +73,7 @@ def _build_markdown(op: dict, method: str, path: str, base_path: str) -> str:
         for p in params:
             name = p.get("name", "")
             location = p.get("in", "")
-            ptype = _get_param_type(p)
+            ptype = _get_param_type(p, spec)
             required = "是" if p.get("required") else "否"
             desc = p.get("description", "")
             lines.append(f"| {name} | {location} | {ptype} | {required} | {desc} |")
@@ -78,9 +84,10 @@ def _build_markdown(op: dict, method: str, path: str, base_path: str) -> str:
         lines.append("")
         content = request_body.get("content", {})
         json_schema = content.get("application/json", {}).get("schema", {})
+        json_schema = _resolve_ref(json_schema.get("$ref", ""), spec) or json_schema
         if json_schema:
             lines.append("```json")
-            lines.append(json.dumps(_schema_to_example(json_schema), indent=2, ensure_ascii=False))
+            lines.append(json.dumps(_schema_to_example(json_schema, spec), indent=2, ensure_ascii=False))
             lines.append("```")
             lines.append("")
             lines.append("字段说明：")
@@ -88,7 +95,7 @@ def _build_markdown(op: dict, method: str, path: str, base_path: str) -> str:
             for prop, prop_schema in json_schema.get("properties", {}).items():
                 required_list = json_schema.get("required", [])
                 req = "必填" if prop in required_list else "可选"
-                ptype = _get_schema_type(prop_schema)
+                ptype = _get_schema_type(prop_schema, spec)
                 desc = prop_schema.get("description", "")
                 lines.append(f"- `{prop}`: {ptype}, {req}{f', {desc}' if desc else ''}")
             lines.append("")
@@ -101,53 +108,67 @@ def _build_markdown(op: dict, method: str, path: str, base_path: str) -> str:
             lines.append(f"**{code}**: {resp_desc}")
             content = resp.get("content", {})
             json_schema = content.get("application/json", {}).get("schema", {})
+            json_schema = _resolve_ref(json_schema.get("$ref", ""), spec) or json_schema
             if json_schema:
                 lines.append("```json")
-                lines.append(json.dumps(_schema_to_example(json_schema), indent=2, ensure_ascii=False))
+                lines.append(json.dumps(_schema_to_example(json_schema, spec), indent=2, ensure_ascii=False))
                 lines.append("```")
             lines.append("")
 
     return "\n".join(lines)
 
 
-def _get_param_type(param: dict) -> str:
+def _get_param_type(param: dict, spec: dict = None) -> str:
     schema = param.get("schema", {})
     if schema:
-        return _get_schema_type(schema)
+        return _get_schema_type(schema, spec)
     return param.get("type", "string")
 
 
-def _get_schema_type(schema: dict) -> str:
+def _get_schema_type(schema: dict, spec: dict = None) -> str:
     if not schema:
         return "string"
+    if "$ref" in schema and spec:
+        schema = _resolve_ref(schema["$ref"], spec) or schema
     stype = schema.get("type", "object")
     if stype == "array":
         items = schema.get("items", {})
-        return f"array[{_get_schema_type(items)}]"
+        return f"array[{_get_schema_type(items, spec)}]"
     if stype == "integer":
         return "int"
     if stype == "number":
         return "float"
+    if stype == "boolean":
+        return "boolean"
     return stype
 
 
-def _schema_to_example(schema: dict) -> dict:
+def _schema_to_example(schema: dict, spec: dict = None) -> dict:
     if not schema:
         return {}
+    if "$ref" in schema and spec:
+        schema = _resolve_ref(schema["$ref"], spec) or schema
+    if "allOf" in schema:
+        merged = {}
+        for part in schema["allOf"]:
+            resolved = _resolve_ref(part.get("$ref", ""), spec) if part.get("$ref") else part
+            merged.update(resolved.get("properties", {}))
+        schema = {"type": "object", "properties": merged}
+    if "oneOf" in schema:
+        schema = {"type": "string", "description": "多种类型，见文档"}
     example = {}
     for prop, prop_schema in schema.get("properties", {}).items():
-        stype = _get_schema_type(prop_schema)
-        example_val = prop_schema.get("example")
+        resolved = _resolve_ref(prop_schema.get("$ref", ""), spec) if prop_schema.get("$ref") else prop_schema
+        stype = _get_schema_type(resolved, spec)
+        example_val = resolved.get("example")
         if example_val is not None:
             example[prop] = example_val
         elif stype == "int":
             example[prop] = 0
         elif stype == "float":
             example[prop] = 0.0
-        elif stype == "array[string]":
-            example[prop] = ["string"]
-        elif stype == "array[int]":
-            example[prop] = [0]
+        elif stype.startswith("array"):
+            example[prop] = []
         elif stype == "boolean":
             example[prop] = True
         else:

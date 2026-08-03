@@ -1,8 +1,8 @@
-# 查询地图地点列表
+# GET /api/v1/user-agent/wallet/summary
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/locations
+GET https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/wallet/summary
 
-所属模块: Locations
+所属模块: UserAgents
 
 ## 响应
 
@@ -13,7 +13,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/locations
   "message": "string",
   "code": 0,
   "errorData": [],
-  "data": []
+  "data": "string"
 }
 ```
 

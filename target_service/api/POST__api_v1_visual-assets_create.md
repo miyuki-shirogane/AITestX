@@ -1,8 +1,10 @@
-# 查询当前用户信息
+# 创建视觉素材 临时开放C端，后续改成Admin权限
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/visual-assets/create
 
-所属模块: Users
+所属模块: VisualAssets
+
+## 请求体
 
 ## 响应
 

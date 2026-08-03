@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 获取当前 LocalAgent 的聚合社交上下文。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/local-agent/social/getAgentSocialContext
 
-所属模块: Users
+所属模块: LocalAgentSocial
 
 ## 响应
 

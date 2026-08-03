@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 用户主动观察当前AI搭档并异步生成照片。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/observation-photos
 
-所属模块: Users
+所属模块: UserAgents
 
 ## 响应
 

@@ -8,8 +8,8 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user/login
 
 ```json
 {
-  "email": "denzelchendg@gmail.com",
-  "password": "88888888"
+  "email": "string",
+  "password": "string"
 }
 ```
 
@@ -20,12 +20,13 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user/login
 
 ## 响应
 
-**200**: 登录成功
+**200**: Success
 ```json
 {
   "success": true,
-  "code": 0,
   "message": "string",
+  "code": 0,
+  "errorData": [],
   "data": "string"
 }
 ```

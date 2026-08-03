@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 获取用户今日观察照片拍摄额度。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+GET https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/observation-photos/quota
 
-所属模块: Users
+所属模块: UserAgents
 
 ## 响应
 

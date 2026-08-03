@@ -1,8 +1,8 @@
-# 查询当前用户信息
+# 查询当前 LocalAgent 的 Location 状态。
 
-POST https://solgrid-friend-api.rivtower.cc/api/v1/user/info
+POST https://solgrid-friend-api.rivtower.cc/api/v1/local-agent/chat/getAgentLocationState
 
-所属模块: Users
+所属模块: LocalAgentChat
 
 ## 响应
 

@@ -1,9 +1,17 @@
 import os
+import re
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
+
+
+def _clean_code_output(content: str) -> str:
+    content = content.strip()
+    content = re.sub(r'^```(?:python)?\s*\n', '', content)
+    content = re.sub(r'\n```\s*$', '', content)
+    return content
 
 
 def get_llm(temperature=0.2):
@@ -26,7 +34,7 @@ def generate_test_cases(api_doc: str, prompt_template: ChatPromptTemplate = None
 
     chain = prompt_template | llm
     result = chain.invoke({"api_doc": api_doc})
-    return result.content
+    return _clean_code_output(result.content)
 
 
 def generate_with_rag(api_doc: str, reference_cases: list[str]) -> str:
@@ -44,7 +52,7 @@ def generate_with_rag(api_doc: str, reference_cases: list[str]) -> str:
             "reference_cases": reference_text,
             "naming_style": "test_<功能>_<场景>",
         })
-        return result.content
+        return _clean_code_output(result.content)
     except Exception as e:
         print(f"RAG生成失败 ({e})，回退到普通模式...")
         return generate_test_cases(api_doc)

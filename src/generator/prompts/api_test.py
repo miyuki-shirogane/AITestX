@@ -7,7 +7,13 @@ API_TEST_PROMPT = ChatPromptTemplate.from_messages([
 ApiClient 用法：
 ```python
 from src.api_client import ApiClient
-client = ApiClient(base_url="http://xxx", headers={{"Authorization": "Bearer xxx"}})
+import os
+# 如果接口需要认证，从环境变量读取 token
+token = os.getenv("API_TOKEN", "")
+client = ApiClient(
+    base_url="http://xxx",
+    headers={{"Authorization": token}} if token else {{}}
+)
 resp = client.post("/api/user/login", data={{"username": "xxx", "password": "xxx"}})
 # resp 直接就是 dict, 如 {{"code": 0, "data": {{"token": "xxx"}}}}
 # 不要调用 resp.json() 或 resp.status_code
@@ -52,9 +58,15 @@ API_TEST_RAG_PROMPT = ChatPromptTemplate.from_messages([
 
 重要：HTTP请求统一使用 `src.api_client.ApiClient`，不要使用参考用例中项目特定的 API 封装类。
 `client.post()` 直接返回 dict，不要调用 .json() 或 .status_code。
+如果接口需要认证，从环境变量 API_TOKEN 读取 token。
 ```python
 from src.api_client import ApiClient
-client = ApiClient(base_url="http://xxx", headers={{"Authorization": "Bearer xxx"}})
+import os
+token = os.getenv("API_TOKEN", "")
+client = ApiClient(
+    base_url="http://xxx",
+    headers={{"Authorization": token}} if token else {{}}
+)
 resp = client.post("/api/user/login", data={{"username": "xxx"}})
 # resp 直接就是 dict
 ```

@@ -15,3 +15,4 @@ coverage.json
 .report.json
 node_modules/
 dist/target_service/
+output/

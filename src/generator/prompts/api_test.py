@@ -12,8 +12,8 @@ import os, pytest
 @pytest.fixture(scope="session")
 def auth_headers():
     client = ApiClient(base_url="http://xxx")
-    resp = client.post("/api/v1/user/login", data={"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")})
-    return {"Authorization": resp["data"]["accessToken"]}
+    resp = client.post("/api/v1/user/login", data={{"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")}})
+    return {{"Authorization": resp["data"]["accessToken"]}}
 
 def test_xxx(auth_headers):
     client = ApiClient(base_url="http://xxx", headers=auth_headers)
@@ -22,14 +22,14 @@ def test_xxx(auth_headers):
 ```
 
 断言规范：
-- 检查 dict 的 key-value 用 has_entries({"code": 0})，等值比较直接传值，不要包 equal_to()
-- 只在不等于/大于/包含等复杂匹配时才用显式 matcher: has_entries({"code": greater_than(0)})
-- 检查 dict 中是否存在某个 key 用 has_entries({"code": anything()})
+- 检查 dict 的 key-value 用 has_entries({{"code": 0}})，等值比较直接传值，不要包 equal_to()
+- 只在不等于/大于/包含等复杂匹配时才用显式 matcher: has_entries({{"code": greater_than(0)}})
+- 检查 dict 中是否存在某个 key 用 has_entries({{"code": anything()}})
 - 检查嵌套数据用 jmespath.search("data.token", resp)
-- **重要：如果 API 文档的响应示例中 data 字段有子结构（如 {"token": "xxx", "user_id": 123}），必须对每个子字段做类型和值的断言，不要只验 not_none()**
+- **重要：如果 API 文档的响应示例中 data 字段有子结构（如 {{"token": "xxx", "user_id": 123}}），必须对每个子字段做类型和值的断言，不要只验 not_none()**
 ```python
 import jmespath
-assert_that(resp, has_entries({"code": 0}))
+assert_that(resp, has_entries({{"code": 0}}))
 token = jmespath.search("data.token", resp)
 assert_that(token, instance_of(str))
 assert_that(token, is_not(empty()))
@@ -67,14 +67,14 @@ import os, pytest
 @pytest.fixture(scope="session")
 def auth_headers():
     client = ApiClient(base_url="http://xxx")
-    resp = client.post("/api/v1/user/login", data={"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")})
-    return {"Authorization": resp["data"]["accessToken"]}
+    resp = client.post("/api/v1/user/login", data={{"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")}})
+    return {{"Authorization": resp["data"]["accessToken"]}}
 ```
 
 断言规范：
-- 检查 dict 的 key-value 用 has_entries({"code": 0})，等值比较直接传值，不要包 equal_to()
-- 复杂匹配时才用显式 matcher: has_entries({"code": greater_than(0)})
-- 检查 dict 中是否存在某个 key 用 has_entries({"code": anything()})
+- 检查 dict 的 key-value 用 has_entries({{"code": 0}})，等值比较直接传值，不要包 equal_to()
+- 复杂匹配时才用显式 matcher: has_entries({{"code": greater_than(0)}})
+- 检查 dict 中是否存在某个 key 用 has_entries({{"code": anything()}})
 - 检查嵌套数据用 jmespath.search("data.token", resp)
 - **重要：如果 API 文档的响应示例中 data 字段有子结构，必须对每个子字段做类型和值的断言**
 - 参考用例中常用：equal_to、has_entries、contains_inanyorder、all_of、is_、not_none、instance_of、is_not

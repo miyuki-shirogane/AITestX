@@ -24,15 +24,20 @@ resp = client.post("/api/user/login", data={{"username": "xxx", "password": "xxx
 - 只在不等于/大于/包含等复杂匹配时才用显式 matcher: has_entries({{"code": greater_than(0)}})
 - 检查 dict 中是否存在某个 key 用 has_entries({{"code": anything()}})
 - 检查嵌套数据用 jmespath.search("data.token", resp)
+- **重要：如果 API 文档的响应示例中 data 字段有子结构（如 {{"token": "xxx", "user_id": 123}}），必须对每个子字段做类型和值的断言，不要只验 not_none()**
 ```python
 import jmespath
 # 简单等值：直接传值
 assert_that(resp, has_entries({{"code": 0}}))
 # 复杂匹配：用 matcher
 assert_that(resp, has_entries({{"code": greater_than(0)}}))
-# 嵌套提取
+# 嵌套提取 + 子字段断言
 token = jmespath.search("data.token", resp)
-assert_that(token, not_none())
+assert_that(token, instance_of(str))
+assert_that(token, is_not(empty()))
+user_id = jmespath.search("data.user_id", resp)
+assert_that(user_id, instance_of(int))
+assert_that(user_id, greater_than(0))
 ```"""),
     ("human", """
 请根据以下API文档，生成pytest测试用例。
@@ -76,11 +81,13 @@ resp = client.post("/api/user/login", data={{"username": "xxx"}})
 - 复杂匹配时才用显式 matcher: has_entries({{"code": greater_than(0)}})
 - 检查 dict 中是否存在某个 key 用 has_entries({{"code": anything()}})
 - 检查嵌套数据用 jmespath.search("data.token", resp)
-- 参考用例中常用：equal_to、has_entries、contains_inanyorder、all_of、is_、not_none
+- **重要：如果 API 文档的响应示例中 data 字段有子结构，必须对每个子字段做类型和值的断言**
+- 参考用例中常用：equal_to、has_entries、contains_inanyorder、all_of、is_、not_none、instance_of、is_not
 ```python
 import jmespath
 token = jmespath.search("data.token", resp)
-assert_that(token, not_none())
+assert_that(token, instance_of(str))
+assert_that(token, is_not(empty()))
 ```"""),
     ("human", """
 ## API文档

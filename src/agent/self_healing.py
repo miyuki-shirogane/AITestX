@@ -1,9 +1,13 @@
 import os
+import time
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
+
+MAX_RETRIES = 3
+RETRY_DELAY = 60
 
 
 def _get_llm():
@@ -15,6 +19,22 @@ def _get_llm():
         timeout=300,
         max_retries=2,
     )
+
+
+def _call_llm_with_retry(chain, inputs: dict, step_name: str) -> str:
+    for attempt in range(MAX_RETRIES):
+        try:
+            result = chain.invoke(inputs)
+            return result.content
+        except Exception as e:
+            msg = str(e)
+            if "520" in msg or "429" in msg or "insufficient_quota" in msg:
+                if attempt < MAX_RETRIES - 1:
+                    delay = RETRY_DELAY * (attempt + 1)
+                    print(f"      ⏳ {step_name} API {msg[:50]}... {delay}s后重试({attempt+1}/{MAX_RETRIES})")
+                    time.sleep(delay)
+                    continue
+            raise
 
 
 def analyze_failure(test_code: str, test_name: str, error_message: str) -> dict:
@@ -55,15 +75,15 @@ def analyze_failure(test_code: str, test_name: str, error_message: str) -> dict:
     ])
 
     chain = prompt | llm
-    result = chain.invoke({
+    result_text = _call_llm_with_retry(chain, {
         "test_name": test_name,
         "test_code": test_code[:3000],
         "error": error_message[:2000],
-    })
+    }, "分析失败")
 
     import json
     try:
-        content = result.content.strip()
+        content = result_text.strip()
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0]
         elif "```" in content:
@@ -72,7 +92,7 @@ def analyze_failure(test_code: str, test_name: str, error_message: str) -> dict:
     except (json.JSONDecodeError, IndexError):
         return {
             "category": "unknown",
-            "reason": result.content[:200],
+            "reason": result_text[:200],
             "can_auto_fix": False,
             "fix_description": ""
         }
@@ -115,14 +135,14 @@ def attempt_fix(test_code: str, test_name: str, error_message: str, analysis: di
     ])
 
     chain = prompt | llm
-    result = chain.invoke({
+    result_text = _call_llm_with_retry(chain, {
         "test_name": test_name,
         "test_code": test_code,
         "error": error_message[:2000],
         "fix_description": analysis.get("fix_description", ""),
-    })
+    }, "修复代码")
 
-    content = result.content.strip()
+    content = result_text.strip()
     if content.startswith("```"):
         content = "\n".join(content.split("\n")[1:-1])
     return content

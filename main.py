@@ -10,7 +10,7 @@ load_dotenv()
 from src.generator.retriever import TestCaseRetriever
 from src.generator.generator import TestCaseGenerator
 from src.generator.swagger import parse_swagger
-from src.agent.executor import TestExecutorAgent
+from src.agent.healer import heal_directory
 
 
 def cmd_seed(retriever: TestCaseRetriever):
@@ -67,17 +67,13 @@ def cmd_swagger(source: str):
 
 
 def cmd_heal(target: str = "output"):
-    """执行测试并自动修复失败的用例"""
+    """执行测试并自动修复失败的用例（可断点续传）"""
     print("=" * 60)
     print("AITestX Phase 2 - 测试执行与自愈")
     print("=" * 60)
     print(f"目标: {target}/")
-    print()
-
-    agent = TestExecutorAgent()
-    report = agent.run(target)
-    print("\n" + "=" * 60)
-    print(report)
+    print("按 Ctrl+C 随时中止，进度自动保存\n")
+    heal_directory(target)
 
 
 def main():

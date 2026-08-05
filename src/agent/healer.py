@@ -1,0 +1,200 @@
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+import glob
+
+from .self_healing import analyze_failure, attempt_fix
+
+
+CHECKPOINT_FILE = "reports/heal_checkpoint.json"
+
+
+def load_checkpoint():
+    if os.path.exists(CHECKPOINT_FILE):
+        with open(CHECKPOINT_FILE, "r") as f:
+            return json.load(f)
+    return {"processed": [], "stats": {"total": 0, "passed": 0, "fixed": 0, "skipped": 0, "failed": 0}}
+
+
+def save_checkpoint(checkpoint):
+    os.makedirs("reports", exist_ok=True)
+    with open(CHECKPOINT_FILE, "w") as f:
+        json.dump(checkpoint, f, ensure_ascii=False, indent=2)
+
+
+def run_single_test(file_path: str) -> tuple:
+    """执行单个测试文件，返回 (passed_count, failed_count, failures)"""
+    result = subprocess.run(
+        ["pytest", file_path, "-v", "--tb=short", "-q", "--no-header"],
+        capture_output=True, text=True, timeout=120
+    )
+    output = result.stdout + result.stderr
+
+    passed = output.count("PASSED")
+    failed = output.count("FAILED")
+
+    failures = []
+    lines = output.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # 匹配分隔线: __________________ test_name __________________
+        if line.startswith("____") and not line.startswith("____ERROR"):
+            test_name = line.strip("_").strip()
+            i += 1
+            error_lines = []
+            while i < len(lines) and not lines[i].startswith("____"):
+                stripped = lines[i].strip()
+                if stripped.startswith("E ") or stripped.startswith("Expected") or stripped.startswith("but:"):
+                    error_lines.append(stripped)
+                i += 1
+            if error_lines:
+                failures.append({
+                    "test": test_name,
+                    "error": "\n".join(error_lines)
+                })
+            continue
+        i += 1
+
+    return passed, failed, failures
+
+
+def heal_file(file_path: str, max_rounds: int = 3) -> dict:
+    """对单个文件执行自愈，最多 max_rounds 轮"""
+    result = {
+        "file": file_path,
+        "rounds": [],
+        "final_status": "unknown",
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    with open(file_path, "r") as f:
+        original_code = f.read()
+
+    for round_num in range(1, max_rounds + 1):
+        passed, failed, failures = run_single_test(file_path)
+
+        if failed == 0:
+            result["final_status"] = "passed"
+            if round_num == 1:
+                result["rounds"].append({"round": 1, "action": "无需修复，直接通过"})
+            else:
+                result["rounds"].append({"round": round_num, "action": f"修复后通过"})
+            break
+
+        if round_num == max_rounds:
+            result["final_status"] = "needs_manual"
+            result["rounds"].append({
+                "round": round_num,
+                "action": f"达到最大修复轮次({max_rounds})，仍有 {failed} 个失败",
+                "remaining_failures": [f["test"] for f in failures]
+            })
+            break
+
+        first_failure = failures[0]
+        test_name = first_failure["test"]
+        error = first_failure["error"]
+
+        with open(file_path, "r") as f:
+            current_code = f.read()
+
+        analysis = analyze_failure(current_code[:3000], test_name, error)
+
+        if not analysis.get("can_auto_fix"):
+            result["final_status"] = "needs_manual"
+            result["rounds"].append({
+                "round": round_num,
+                "action": f"无法自动修复: {analysis.get('reason', '')}",
+                "category": analysis.get("category"),
+                "test": test_name,
+            })
+            break
+
+        fixed_code = attempt_fix(current_code, test_name, error, analysis)
+        if not fixed_code:
+            result["final_status"] = "needs_manual"
+            result["rounds"].append({
+                "round": round_num,
+                "action": "修复失败，AI 未返回有效代码",
+            })
+            break
+
+        try:
+            compile(fixed_code, file_path, "exec")
+        except SyntaxError as e:
+            result["final_status"] = "needs_manual"
+            result["rounds"].append({
+                "round": round_num,
+                "action": f"修复后代码有语法错误: {e}",
+            })
+            break
+
+        with open(file_path, "w") as f:
+            f.write(fixed_code)
+
+        result["rounds"].append({
+            "round": round_num,
+            "action": f"修复 {test_name}: {analysis.get('fix_description', '')}",
+            "category": analysis.get("category"),
+        })
+
+    return result
+
+
+def heal_directory(target_dir: str = "output"):
+    checkpoint = load_checkpoint()
+    processed = set(checkpoint.get("processed", []))
+
+    files = sorted(glob.glob(f"{target_dir}/test_*.py"))
+    remaining = [f for f in files if f not in processed]
+
+    if not remaining:
+        print("所有文件已处理完毕")
+        return checkpoint
+
+    print(f"待处理: {len(remaining)} 个文件 (已处理: {len(processed)} 个)")
+    print("按 Ctrl+C 随时中止，已处理的文件不会丢失\n")
+
+    for i, file_path in enumerate(remaining):
+        print(f"[{i+1}/{len(remaining)}] {os.path.basename(file_path)} ... ", end="", flush=True)
+        try:
+            result = heal_file(file_path)
+            processed.add(file_path)
+            checkpoint["processed"] = list(processed)
+            checkpoint["stats"]["total"] += 1
+
+            status = result["final_status"]
+            if status == "passed":
+                if len(result["rounds"]) == 1 and "无需修复" in result["rounds"][0]["action"]:
+                    print("✅ 直接通过")
+                    checkpoint["stats"]["passed"] += 1
+                else:
+                    rounds = len(result["rounds"])
+                    print(f"🔧 {rounds}轮修复通过")
+                    checkpoint["stats"]["fixed"] += 1
+            elif status == "needs_manual":
+                print(f"⚠️ 需人工介入")
+                checkpoint["stats"]["failed"] += 1
+            else:
+                print(f"❓ {status}")
+                checkpoint["stats"]["skipped"] += 1
+
+            save_checkpoint(checkpoint)
+        except KeyboardInterrupt:
+            print("\n\n⏸️ 已中止，进度已保存")
+            save_checkpoint(checkpoint)
+            print(f"已处理: {len(processed)} 个文件")
+            print(f"下次运行 'python main.py heal' 将从断点继续")
+            return checkpoint
+        except Exception as e:
+            print(f"❌ 错误: {e}")
+            save_checkpoint(checkpoint)
+
+    print(f"\n=== 完成 ===")
+    print(f"总计: {checkpoint['stats']['total']}")
+    print(f"直接通过: {checkpoint['stats']['passed']}")
+    print(f"修复通过: {checkpoint['stats']['fixed']}")
+    print(f"需人工介入: {checkpoint['stats']['failed']}")
+    return checkpoint

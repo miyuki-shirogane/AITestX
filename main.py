@@ -10,6 +10,7 @@ load_dotenv()
 from src.generator.retriever import TestCaseRetriever
 from src.generator.generator import TestCaseGenerator
 from src.generator.swagger import parse_swagger
+from src.agent.executor import TestExecutorAgent
 
 
 def cmd_seed(retriever: TestCaseRetriever):
@@ -65,12 +66,27 @@ def cmd_swagger(source: str):
     print(f"\n文档已保存到 {save_dir}/，用 python main.py generate <文件> 生成用例")
 
 
+def cmd_heal(target: str = "output"):
+    """执行测试并自动修复失败的用例"""
+    print("=" * 60)
+    print("AITestX Phase 2 - 测试执行与自愈")
+    print("=" * 60)
+    print(f"目标: {target}/")
+    print()
+
+    agent = TestExecutorAgent()
+    report = agent.run(target)
+    print("\n" + "=" * 60)
+    print(report)
+
+
 def main():
     if len(sys.argv) < 2:
         print("用法:")
         print("  python main.py seed                     # 加载历史用例到知识库")
         print("  python main.py swagger <URL或文件>       # 从 Swagger 解析 API 文档")
         print("  python main.py generate <文档>           # 根据 API 文档生成测试用例")
+        print("  python main.py heal [target]             # 执行测试并自动修复（默认 output/）")
         return
 
     cmd = sys.argv[1]
@@ -86,6 +102,9 @@ def main():
             print("用法: python main.py generate <API文档路径>")
             return
         cmd_generate(sys.argv[2])
+    elif cmd == "heal":
+        target = sys.argv[2] if len(sys.argv) > 2 else "output"
+        cmd_heal(target)
     else:
         print(f"未知命令: {cmd}")
 

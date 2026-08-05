@@ -25,21 +25,22 @@ def analyze_failure(test_code: str, test_name: str, error_message: str) -> dict:
         ("system", """你是一个测试故障分析专家。分析以下测试失败，返回 JSON：
 
 {{
-    "category": "assertion_mismatch | type_error | import_error | service_bug | upstream_data_needed | unknown",
+    "category": "assertion_mismatch | type_error | import_error | json_decode_error | service_bug | upstream_data_needed | unknown",
     "reason": "失败原因的一句话描述",
     "can_auto_fix": true/false,
-    "fix_description": "如果可以自动修复，描述修复方案"
+    "fix_description": "如果可以自动修复，描述具体修复方案"
 }}
 
-分类说明：
-- assertion_mismatch: 断言值不对（期望 code=0 实际是 200，期望消息"邮箱不能为空"实际是"用户未找到"等），**默认 can_auto_fix=true**
-- type_error: 类型断言错误（期望 instance_of(str) 实际是 dict），**默认 can_auto_fix=true**
-- import_error: 缺少 import 语句，**默认 can_auto_fix=true**
-- service_bug: 服务端真的出 Bug 了（500 错误等），can_auto_fix=false
-- upstream_data_needed: 需要上游接口提供数据，can_auto_fix=false
-- unknown: 无法判断，can_auto_fix=false
+分类说明（**默认 can_auto_fix=true**，只有明确无法修复才设为 false）：
+- assertion_mismatch: 断言值不对（期望 code=0 实际是 200，期望消息"xxx"实际是"yyy"），**can_auto_fix=true**
+- type_error: 类型断言错误（期望 str 实际是 dict），**can_auto_fix=true**
+- import_error: 缺少 import（NameError: name 'os' is not defined），**can_auto_fix=true**，修复方案：添加对应 import
+- json_decode_error: JSONDecodeError（API 返回空响应或非 JSON），**can_auto_fix=true**，修复方案：更改断言为检查响应是否为空
+- service_bug: 服务端 500 错误，can_auto_fix=false
+- upstream_data_needed: 需要上游数据（如 location_id），can_auto_fix=false
+- unknown: 仅在完全无法判断时使用，can_auto_fix=false
 
-**重要：只要是断言值对不上、类型对不上、缺少 import，一律标记 can_auto_fix=true**"""),
+**重要规则：只要能确定是断言值、类型、import 的问题，一律标记 can_auto_fix=true**"""),
         ("human", """
 测试用例: {test_name}
 

@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 import glob
 
@@ -61,7 +62,7 @@ def run_single_test(file_path: str) -> tuple:
     return passed, failed, failures
 
 
-def heal_file(file_path: str, max_rounds: int = 3) -> dict:
+def heal_file(file_path: str, max_rounds: int = 5) -> dict:
     """对单个文件执行自愈，最多 max_rounds 轮"""
     result = {
         "file": file_path,

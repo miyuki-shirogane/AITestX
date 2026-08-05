@@ -1,5 +1,4 @@
 import requests
-import json
 
 
 class ApiClient:
@@ -11,18 +10,24 @@ class ApiClient:
         self.session.headers.update(headers or {})
         self.session.headers.setdefault("Content-Type", "application/json")
 
+    def _parse(self, resp: requests.Response) -> dict:
+        try:
+            return resp.json()
+        except Exception:
+            return {"_status": resp.status_code, "_body": resp.text[:200]}
+
     def post(self, path: str, data: dict = None, **kwargs) -> dict:
         resp = self.session.post(f"{self.base_url}{path}", json=data, **kwargs)
-        return resp.json()
+        return self._parse(resp)
 
     def get(self, path: str, **kwargs) -> dict:
         resp = self.session.get(f"{self.base_url}{path}", **kwargs)
-        return resp.json()
+        return self._parse(resp)
 
     def put(self, path: str, data: dict = None, **kwargs) -> dict:
         resp = self.session.put(f"{self.base_url}{path}", json=data, **kwargs)
-        return resp.json()
+        return self._parse(resp)
 
     def delete(self, path: str, **kwargs) -> dict:
         resp = self.session.delete(f"{self.base_url}{path}", **kwargs)
-        return resp.json()
+        return self._parse(resp)

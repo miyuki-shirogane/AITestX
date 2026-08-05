@@ -122,14 +122,16 @@ def cmd_heal(target: str = "output"):
 
 
 def cmd_report():
-    """从 checkpoint 生成自愈报告"""
-    cp_path = "reports/heal_checkpoint.json"
-    if not os.path.exists(cp_path):
+    """从自愈结果生成报告"""
+    import json as _json
+    from src.agent.healer import load_results, load_checkpoint
+
+    results = load_results()
+    cp = load_checkpoint()
+
+    if not results and not cp.get("processed"):
         print("还没有自愈记录，请先运行 python main.py heal")
         return
-
-    with open(cp_path) as f:
-        cp = json.load(f)
 
     stats = cp.get("stats", {})
     processed = cp.get("processed", [])
@@ -142,22 +144,34 @@ def cmd_report():
 
 | 指标 | 数量 |
 |------|:---:|
-| 已处理文件 | {len(processed)} |
-| 直接通过 | {stats.get("passed", 0)} |
+| 已通过文件 | {len(processed)} |
+| 全部通过 | {stats.get("passed", 0)} |
 | 修复通过 | {stats.get("fixed", 0)} |
-| 需人工介入 | {stats.get("failed", 0)} |
+| 转移到 Phase 3 | {stats.get("failed", 0)} |
 
-## 已处理文件
+## 修复详情
 
+| 文件 | 状态 | 详情 |
+|------|:---:|------|
 """
-    for f in sorted(processed):
-        md += f"- {os.path.basename(f)}\n"
+    for f in sorted(results.keys()):
+        r = results[f]
+        name = os.path.basename(f)
+        if r["final_status"] == "passed":
+            if len(r["rounds"]) == 1 and "无需修复" in r["rounds"][0]["action"]:
+                md += f"| {name} | ✅ | 直接通过 |\n"
+            else:
+                fixes = "; ".join(rd["action"][:60] for rd in r["rounds"])
+                md += f"| {name} | 🔧 | {fixes} |\n"
+        else:
+            reason = r["rounds"][-1]["action"][:80] if r["rounds"] else "未知"
+            md += f"| {name} | ⚠️ | {reason} |\n"
 
     report_path = "reports/heal_report.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(md)
     print(f"报告已生成: {report_path}")
-    print(md)
+    print(md[:500])
 
 
 def main():

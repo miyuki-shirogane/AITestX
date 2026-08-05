@@ -9,7 +9,20 @@ import glob
 from .self_healing import analyze_failure, attempt_fix
 
 
-CHECKPOINT_FILE = "reports/heal_checkpoint.json"
+RESULTS_FILE = "reports/heal_results.json"
+
+
+def load_results():
+    if os.path.exists(RESULTS_FILE):
+        with open(RESULTS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_results(results):
+    os.makedirs("reports", exist_ok=True)
+    with open(RESULTS_FILE, "w") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
 
 
 def load_checkpoint():
@@ -151,6 +164,7 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
 def heal_directory(target_dir: str = "output"):
     checkpoint = load_checkpoint()
     processed = set(checkpoint.get("processed", []))
+    results = load_results()
 
     files = sorted(glob.glob(f"{target_dir}/test_*.py"))
     remaining = [f for f in files if f not in processed]
@@ -166,6 +180,8 @@ def heal_directory(target_dir: str = "output"):
         print(f"[{i+1}/{len(remaining)}] {os.path.basename(file_path)} ... ", end="", flush=True)
         try:
             result = heal_file(file_path)
+            results[file_path] = result
+            save_results(results)
 
             status = result["final_status"]
             if status == "passed":
@@ -196,16 +212,47 @@ def heal_directory(target_dir: str = "output"):
         except KeyboardInterrupt:
             print("\n\n⏸️ 已中止，进度已保存")
             save_checkpoint(checkpoint)
+            save_results(results)
             print(f"已处理: {len(processed)} 个文件")
             print(f"下次运行 'python main.py heal' 将从断点继续")
             return checkpoint
         except Exception as e:
             print(f"❌ 错误: {e}")
             save_checkpoint(checkpoint)
+            save_results(results)
 
+    _generate_phase3_report(results)
     print(f"\n=== 完成 ===")
     print(f"总计: {checkpoint['stats']['total']}")
     print(f"直接通过: {checkpoint['stats']['passed']}")
     print(f"修复通过: {checkpoint['stats']['fixed']}")
     print(f"需人工介入: {checkpoint['stats']['failed']}")
     return checkpoint
+
+
+def _generate_phase3_report(results: dict):
+    """从自愈结果中提取 Phase 3 需要处理的任务"""
+    tasks = []
+    for file_path, result in results.items():
+        if result["final_status"] != "needs_manual" or result.get("retryable"):
+            continue
+        for r in result.get("rounds", []):
+            if r.get("category") in ("upstream_data_needed", "service_bug"):
+                tasks.append({
+                    "file": os.path.basename(file_path),
+                    "category": r["category"],
+                    "detail": r.get("action", ""),
+                    "test": r.get("test", ""),
+                })
+
+    if tasks:
+        report = {
+            "phase": 3,
+            "description": "Phase 3 编排器需要处理的上下游依赖和服务 Bug",
+            "tasks": tasks,
+            "generated_at": datetime.now().isoformat(),
+        }
+        path = "reports/phase3_tasks.json"
+        with open(path, "w") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        print(f"Phase 3 任务清单: {path} ({len(tasks)} 项)")

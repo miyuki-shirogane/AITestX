@@ -3,6 +3,8 @@
 
 import os
 import sys
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,7 +46,50 @@ def cmd_generate(api_doc_path: str):
     _save_and_print(code, os.path.splitext(os.path.basename(api_doc_path))[0])
 
 
-def cmd_swagger(source: str):
+def cmd_generate_batch():
+    """批量生成所有接口的测试用例（可断点续传）"""
+    import glob
+
+    md_files = sorted(glob.glob("target_service/api/*.md"))
+    if not md_files:
+        print("没有找到 API 文档，请先运行 python main.py swagger")
+        return
+
+    checkpoint_path = "reports/gen_checkpoint.json"
+    done = set()
+    if os.path.exists(checkpoint_path):
+        with open(checkpoint_path) as f:
+            done = set(json.load(f).get("done", []))
+
+    remaining = [f for f in md_files if os.path.basename(f) not in done]
+    if not remaining:
+        print("所有接口已生成完毕")
+        return
+
+    generator = TestCaseGenerator()
+    total = len(remaining)
+    print(f"待生成: {total} 个接口 (已生成: {len(done)} 个)")
+    print("按 Ctrl+C 随时中止\n")
+
+    for i, f in enumerate(remaining):
+        name = os.path.basename(f).replace(".md", "")
+        print(f"[{i+1}/{total}] {name[:55]}... ", end="", flush=True)
+        try:
+            with open(f, "r", encoding="utf-8") as fh:
+                api_doc = fh.read()
+            code = generator.generate(api_doc)
+            _save_and_print(code, name)
+            print("OK")
+            done.add(os.path.basename(f))
+            with open(checkpoint_path, "w") as cf:
+                json.dump({"done": list(done)}, cf, ensure_ascii=False)
+        except KeyboardInterrupt:
+            print("\n\n⏸️ 已中止，进度已保存")
+            return
+        except Exception as e:
+            print(f"FAIL: {e}")
+
+    print(f"\n=== 完成: {len(done)} 个接口 ===")
     if not source:
         print("用法: python main.py swagger <URL或本地文件路径>")
         return
@@ -76,13 +121,54 @@ def cmd_heal(target: str = "output"):
     heal_directory(target)
 
 
+def cmd_report():
+    """从 checkpoint 生成自愈报告"""
+    cp_path = "reports/heal_checkpoint.json"
+    if not os.path.exists(cp_path):
+        print("还没有自愈记录，请先运行 python main.py heal")
+        return
+
+    with open(cp_path) as f:
+        cp = json.load(f)
+
+    stats = cp.get("stats", {})
+    processed = cp.get("processed", [])
+
+    md = f"""# AITestX Phase 2 自愈报告
+
+> 生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## 概览
+
+| 指标 | 数量 |
+|------|:---:|
+| 已处理文件 | {len(processed)} |
+| 直接通过 | {stats.get("passed", 0)} |
+| 修复通过 | {stats.get("fixed", 0)} |
+| 需人工介入 | {stats.get("failed", 0)} |
+
+## 已处理文件
+
+"""
+    for f in sorted(processed):
+        md += f"- {os.path.basename(f)}\n"
+
+    report_path = "reports/heal_report.md"
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(md)
+    print(f"报告已生成: {report_path}")
+    print(md)
+
+
 def main():
     if len(sys.argv) < 2:
         print("用法:")
         print("  python main.py seed                     # 加载历史用例到知识库")
         print("  python main.py swagger <URL或文件>       # 从 Swagger 解析 API 文档")
-        print("  python main.py generate <文档>           # 根据 API 文档生成测试用例")
+        print("  python main.py generate <文档>           # 生成单个接口的测试用例")
+        print("  python main.py batch                    # 批量生成所有接口（断点续传）")
         print("  python main.py heal [target]             # 执行测试并自动修复（默认 output/）")
+        print("  python main.py report                   # 生成自愈报告")
         return
 
     cmd = sys.argv[1]
@@ -98,9 +184,13 @@ def main():
             print("用法: python main.py generate <API文档路径>")
             return
         cmd_generate(sys.argv[2])
+    elif cmd == "batch":
+        cmd_generate_batch()
     elif cmd == "heal":
         target = sys.argv[2] if len(sys.argv) > 2 else "output"
         cmd_heal(target)
+    elif cmd == "report":
+        cmd_report()
     else:
         print(f"未知命令: {cmd}")
 

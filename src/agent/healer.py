@@ -87,9 +87,10 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
 
         if round_num == max_rounds:
             result["final_status"] = "needs_manual"
+            result["retryable"] = True
             result["rounds"].append({
                 "round": round_num,
-                "action": f"达到最大修复轮次({max_rounds})，仍有 {failed} 个失败",
+                "action": f"达到最大修复轮次({max_rounds})，仍有 {failed} 个失败，下次可继续",
                 "remaining_failures": [f["test"] for f in failures]
             })
             break
@@ -105,6 +106,7 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
 
         if not analysis.get("can_auto_fix"):
             result["final_status"] = "needs_manual"
+            result["retryable"] = False
             result["rounds"].append({
                 "round": round_num,
                 "action": f"无法自动修复: {analysis.get('reason', '')}",
@@ -116,6 +118,7 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
         fixed_code = attempt_fix(current_code, test_name, error, analysis)
         if not fixed_code:
             result["final_status"] = "needs_manual"
+            result["retryable"] = True
             result["rounds"].append({
                 "round": round_num,
                 "action": "修复失败，AI 未返回有效代码",
@@ -126,6 +129,7 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
             compile(fixed_code, file_path, "exec")
         except SyntaxError as e:
             result["final_status"] = "needs_manual"
+            result["retryable"] = True
             result["rounds"].append({
                 "round": round_num,
                 "action": f"修复后代码有语法错误: {e}",
@@ -162,12 +166,10 @@ def heal_directory(target_dir: str = "output"):
         print(f"[{i+1}/{len(remaining)}] {os.path.basename(file_path)} ... ", end="", flush=True)
         try:
             result = heal_file(file_path)
-            processed.add(file_path)
-            checkpoint["processed"] = list(processed)
-            checkpoint["stats"]["total"] += 1
 
             status = result["final_status"]
             if status == "passed":
+                processed.add(file_path)
                 if len(result["rounds"]) == 1 and "无需修复" in result["rounds"][0]["action"]:
                     print("✅ 直接通过")
                     checkpoint["stats"]["passed"] += 1
@@ -176,12 +178,20 @@ def heal_directory(target_dir: str = "output"):
                     print(f"🔧 {rounds}轮修复通过")
                     checkpoint["stats"]["fixed"] += 1
             elif status == "needs_manual":
-                print(f"⚠️ 需人工介入")
-                checkpoint["stats"]["failed"] += 1
+                if result.get("retryable"):
+                    print(f"⏳ 部分修复，下次继续")
+                    checkpoint["stats"]["fixed"] += 1
+                else:
+                    processed.add(file_path)
+                    print(f"⚠️ 需人工介入")
+                    checkpoint["stats"]["failed"] += 1
             else:
+                processed.add(file_path)
                 print(f"❓ {status}")
                 checkpoint["stats"]["skipped"] += 1
 
+            checkpoint["processed"] = list(processed)
+            checkpoint["stats"]["total"] = len(processed)
             save_checkpoint(checkpoint)
         except KeyboardInterrupt:
             print("\n\n⏸️ 已中止，进度已保存")

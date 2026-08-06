@@ -1,18 +1,46 @@
 import json
 import re
+import hashlib
+import os
 import requests
 import yaml
 
 
-def parse_swagger(source: str) -> list[dict]:
-    """解析 Swagger/OpenAPI 文档，返回每个接口的 Markdown 描述"""
+HASH_FILE = "target_service/.api_hashes.json"
+
+
+def load_hashes() -> dict:
+    if os.path.exists(HASH_FILE):
+        with open(HASH_FILE) as f:
+            return json.load(f)
+    return {}
+
+
+def save_hashes(hashes: dict):
+    os.makedirs(os.path.dirname(HASH_FILE), exist_ok=True)
+    with open(HASH_FILE, "w") as f:
+        json.dump(hashes, f, ensure_ascii=False, indent=2)
+
+
+def hash_content(content: str) -> str:
+    return hashlib.md5(content.encode()).hexdigest()
+
+
+def parse_swagger(source: str, diff_only: bool = False) -> tuple:
+    """解析 Swagger/OpenAPI 文档，返回 (接口列表, 变更统计)"""
     spec = _load_spec(source)
     base_path = spec.get("servers", [{}])[0].get("url", "").rstrip("/")
     if not base_path and "host" in spec:
         scheme = spec.get("schemes", ["http"])[0]
         base_path = f"{scheme}://{spec['host']}{spec.get('basePath', '')}"
 
+    old_hashes = load_hashes()
+    new_hashes = {}
     results = []
+    changed = 0
+    unchanged = 0
+    new_count = 0
+
     for path, methods in spec.get("paths", {}).items():
         for method in ["get", "post", "put", "delete", "patch"]:
             if method not in methods:
@@ -20,9 +48,26 @@ def parse_swagger(source: str) -> list[dict]:
             op = methods[method]
             doc = _build_markdown(op, method.upper(), path, base_path, spec)
             tag = (op.get("tags") or ["未分类"])[0]
-            results.append({"path": f"{method.upper()} {path}", "doc": doc, "tag": tag})
+            api_path = f"{method.upper()} {path}"
+            safe_name = api_path.replace("/", "_").replace(" ", "_").strip("_")
+            key = f"{safe_name}.md"
+            h = hash_content(doc)
+            new_hashes[key] = h
 
-    return results
+            if diff_only:
+                old_h = old_hashes.get(key)
+                if old_h == h:
+                    unchanged += 1
+                    continue
+                elif old_h is None:
+                    new_count += 1
+                else:
+                    changed += 1
+
+            results.append({"path": api_path, "doc": doc, "tag": tag, "filename": key})
+
+    save_hashes(new_hashes)
+    return results, {"total": len(results), "changed": changed, "new": new_count, "unchanged": unchanged}
 
 
 def _load_spec(source: str) -> dict:

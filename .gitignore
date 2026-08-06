@@ -16,3 +16,4 @@ coverage.json
 node_modules/
 target_service/
 output/
+target_service/.api_hashes.json

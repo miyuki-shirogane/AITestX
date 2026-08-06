@@ -20,8 +20,8 @@ class ApiClient:
         resp = self.session.post(f"{self.base_url}{path}", json=data, **kwargs)
         return self._parse(resp)
 
-    def get(self, path: str, **kwargs) -> dict:
-        resp = self.session.get(f"{self.base_url}{path}", **kwargs)
+    def get(self, path: str, params: dict = None, **kwargs) -> dict:
+        resp = self.session.get(f"{self.base_url}{path}", params=params, **kwargs)
         return self._parse(resp)
 
     def put(self, path: str, data: dict = None, **kwargs) -> dict:

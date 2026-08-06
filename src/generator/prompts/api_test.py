@@ -18,8 +18,10 @@ def auth_headers():
 
 def test_xxx(auth_headers):
     client = ApiClient(base_url="http://xxx", headers=auth_headers)
-    resp = client.post("/api/xxx")
-    # resp 直接就是 dict, 不要调用 resp.json() 或 resp.status_code
+resp = client.post("/api/xxx")
+# GET 请求用 params= 传查询参数，不要用 data=
+resp = client.get("/api/xxx", params={{"page": 1}})
+# resp 直接就是 dict, 不要调用 resp.json() 或 resp.status_code
 ```
 
 断言规范：

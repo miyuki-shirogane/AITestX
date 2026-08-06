@@ -14,8 +14,8 @@ API_TEST_PROMPT = ChatPromptTemplate.from_messages([
 ```python
 from src.api_client import ApiClient
 import os, pytest, allure, logging, jmespath
-from hamcrest import *
 from pprint import pformat
+from hamcrest import *
 
 client = ApiClient(base_url="https://api.example.com")
 
@@ -63,8 +63,8 @@ API_TEST_RAG_PROMPT = ChatPromptTemplate.from_messages([
 ```python
 from src.api_client import ApiClient
 import os, pytest, allure, logging, jmespath
-from hamcrest import *
 from pprint import pformat
+from hamcrest import *
 
 client = ApiClient(base_url="https://api.example.com")
 

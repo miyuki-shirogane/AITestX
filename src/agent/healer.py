@@ -9,6 +9,7 @@ import glob
 from .self_healing import analyze_failure, attempt_fix
 
 
+CHECKPOINT_FILE = "reports/heal_checkpoint.json"
 RESULTS_FILE = "reports/heal_results.json"
 
 

@@ -13,7 +13,8 @@ import os, pytest
 def auth_headers():
     client = ApiClient(base_url="http://xxx")
     resp = client.post("/api/v1/user/login", data={{"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")}})
-    return {{"Authorization": resp["data"]["accessToken"]}}
+    token = resp["data"]["accessToken"]
+    return {{"Authorization": token}}  # token 已包含 Bearer 前缀，不要加 f"Bearer {{token}}"
 
 def test_xxx(auth_headers):
     client = ApiClient(base_url="http://xxx", headers=auth_headers)
@@ -68,7 +69,8 @@ import os, pytest
 def auth_headers():
     client = ApiClient(base_url="http://xxx")
     resp = client.post("/api/v1/user/login", data={{"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")}})
-    return {{"Authorization": resp["data"]["accessToken"]}}
+    token = resp["data"]["accessToken"]
+    return {{"Authorization": token}}  # token 已包含 Bearer 前缀，不要加 f"Bearer {{token}}"
 ```
 
 断言规范：

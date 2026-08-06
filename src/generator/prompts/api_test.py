@@ -12,10 +12,15 @@ API_TEST_PROMPT = ChatPromptTemplate.from_messages([
 6. 必须 import 所有使用的库：os, pytest, allure, jmespath, logging 等
 
 ```python
-from src.api_client import ApiClient
-import os, pytest, allure, logging, jmespath
+# === 以下 import 必须完整，一个都不能少 ===
+import os
+import pytest
+import allure
+import logging
+import jmespath
 from pprint import pformat
 from hamcrest import *
+from src.api_client import ApiClient
 
 client = ApiClient(base_url="https://api.example.com")
 

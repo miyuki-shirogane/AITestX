@@ -42,25 +42,24 @@ def analyze_failure(test_code: str, test_name: str, error_message: str) -> dict:
     llm = _get_llm()
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """你是一个测试故障分析专家。分析以下测试失败，返回 JSON：
+        ("system", """你是一个测试故障分析专家。判断以下测试失败是否应该自动修复断言值。
 
+返回 JSON：
 {{
-    "category": "assertion_mismatch | type_error | import_error | invalid_test_data | service_bug | upstream_data_needed | unknown",
-    "reason": "失败原因的一句话描述",
     "can_auto_fix": true/false,
-    "fix_description": "如果可以自动修复，描述具体修复方案"
+    "fix_description": "如果可以修复，描述怎么改"
 }}
 
-分类说明：
-- assertion_mismatch: 断言值不对（期望 code=0 实际是 200），**can_auto_fix=true**。但注意：如果测试预期成功(code=0)却返回了400/404等错误码，说明测试数据有问题，应归类为 invalid_test_data
-- type_error: 类型断言错误（期望 str 实际是 dict），**can_auto_fix=true**
-- import_error: 缺少 import，**can_auto_fix=true**
-- invalid_test_data: 测试用的假数据（fileId="valid_file_id"）导致API返回校验错误(400/404)，**can_auto_fix=false**，这不是断言问题，是测试数据需要替换为真实值
-- service_bug: 服务端500错误，can_auto_fix=false
-- upstream_data_needed: 需要上游接口提供数据（如 location_id），can_auto_fix=false
-- unknown: 仅在完全无法判断时使用，can_auto_fix=false
+判断标准只有一条：
+- 测试的**意图**和 API 的**实际行为**是否一致？
 
-**关键规则：如果测试预期成功(code=0/success=True)但实际返回了400/404/statusCode等校验错误，说明测试数据无效，归类为 invalid_test_data，can_auto_fix=false**"""),
+具体来说：
+- 测试意图是"成功"（函数名含 success、断言 code=0 或 success=True），但 API 返回了 400/404/statusCode 等错误 → **意图和行为不一致，can_auto_fix=false**，说明测试数据有问题，不是断言问题
+- 测试意图是"成功"，API 也返回了成功（code=200），只是某个字段值对不上（如 code=0 vs 200）→ **意图和行为一致，can_auto_fix=true**，修断言值
+- 测试意图是"失败"（断言 code>0 或 message 包含某错误），API 也返回了失败，只是错误消息不同 → **can_auto_fix=true**，修错误消息
+- 测试意图是"失败"，但 API 返回了成功（code=200）→ **can_auto_fix=false**，这是服务行为变化，需要人工确认
+
+简而言之：**先看测试意图和 API 行为是否一致，一致才修，不一致不修。**"""),
         ("human", """
 测试用例: {test_name}
 

@@ -123,8 +123,7 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
             result["retryable"] = False
             result["rounds"].append({
                 "round": round_num,
-                "action": f"无法自动修复: {analysis.get('reason', '')}",
-                "category": analysis.get("category"),
+                "action": f"无法自动修复: {analysis.get('fix_description', analysis.get('reason', ''))}",
                 "test": test_name,
             })
             break
@@ -238,7 +237,7 @@ def _generate_phase3_report(results: dict):
         if result["final_status"] != "needs_manual" or result.get("retryable"):
             continue
         for r in result.get("rounds", []):
-            if r.get("category") in ("upstream_data_needed", "service_bug", "invalid_test_data"):
+            if r.get("category") in ("upstream_data_needed", "service_bug", "invalid_test_data") or (not r.get("retryable", True)):
                 tasks.append({
                     "file": os.path.basename(file_path),
                     "category": r["category"],

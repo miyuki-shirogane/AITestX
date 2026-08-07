@@ -155,7 +155,7 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
 
         result["rounds"].append({
             "round": round_num,
-            "action": f"修复 {test_name}: {analysis.get('fix_description', '')[:80]}",
+            "action": f"修复 {test_name}: {analysis.get('fix_description', '')}",
             "category": analysis.get("category"),
         })
 

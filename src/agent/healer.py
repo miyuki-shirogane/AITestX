@@ -124,7 +124,8 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
             result["retryable"] = retryable
             result["rounds"].append({
                 "round": round_num,
-                "action": f"无法自动修复: {analysis.get('fix_description', analysis.get('reason', ''))}",
+                "action": f"无法自动修复: {analysis.get('fix_description', '') or analysis.get('reason', '') or '原因未知'}",
+                "category": analysis.get("category"),
                 "test": test_name,
             })
             break

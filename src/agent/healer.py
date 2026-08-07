@@ -119,8 +119,9 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
         analysis = analyze_failure(current_code[:3000], test_name, error)
 
         if not analysis.get("can_auto_fix"):
+            retryable = "Connection" in error or "ConnectError" in error or "ConnectionRefused" in error or "Max retries" in error
             result["final_status"] = "needs_manual"
-            result["retryable"] = False
+            result["retryable"] = retryable
             result["rounds"].append({
                 "round": round_num,
                 "action": f"无法自动修复: {analysis.get('fix_description', analysis.get('reason', ''))}",

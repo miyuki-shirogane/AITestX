@@ -7,8 +7,8 @@ class ApiClient:
     def __init__(self, base_url: str, headers: dict = None):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
-        self.session.headers.update(headers or {})
-        self.session.headers.setdefault("Content-Type", "application/json")
+        if headers:
+            self.session.headers.update(headers)
 
     def _parse(self, resp: requests.Response) -> dict:
         try:

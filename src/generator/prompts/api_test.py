@@ -36,6 +36,12 @@ def test_public_api():
 def test_auth_api(auth_headers):
     resp = client.post("/api/private", headers=auth_headers)
     assert_that(resp, has_entries({{"code": 0}}))
+```
+
+**重要规则**：
+- 测试数据中的业务 ID（如 designId、fileId、locationId）直接用占位字符串，如 `"valid_design_id"`，不要用 `os.getenv("TEST_XXX_ID")`
+- 环境变量只用于认证（TEST_EMAIL、TEST_PASSWORD），不用于业务数据
+- 业务 ID 由 Phase 3 编排器自动替换为真实值
 ```"""),
     ("human", """
 请根据以下API文档，生成pytest测试用例。

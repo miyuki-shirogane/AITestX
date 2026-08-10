@@ -88,6 +88,12 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
     with open(file_path, "r") as f:
         original_code = f.read()
 
+    # 备份原始代码
+    os.makedirs("output/.backup", exist_ok=True)
+    backup_path = f"output/.backup/{os.path.basename(file_path)}"
+    with open(backup_path, "w") as f:
+        f.write(original_code)
+
     for round_num in range(1, max_rounds + 1):
         passed, failed, failures = run_single_test(file_path)
 

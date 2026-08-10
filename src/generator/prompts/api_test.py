@@ -31,10 +31,12 @@ def auth_headers():
 
 def test_public_api():
     resp = client.get("/api/public")
+    logging.info(f\"响应: {pformat(resp)}\")
     assert_that(resp, has_entries({{"code": 0}}))
 
 def test_auth_api(auth_headers):
     resp = client.post("/api/private", headers=auth_headers)
+    logging.info(f\"响应: {pformat(resp)}\")
     assert_that(resp, has_entries({{"code": 0}}))
 ```
 

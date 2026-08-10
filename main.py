@@ -23,7 +23,17 @@ def cmd_seed(retriever: TestCaseRetriever):
     retriever.load_seed_data(seed_dir)
 
 
+def _cleanup_test_code(code: str) -> str:
+    """清理生成代码中的常见问题"""
+    import re
+    # 替换 os.getenv("TEST_XXX_ID") 为占位字符串
+    code = re.sub(r'os\.getenv\("TEST_\w+ID"(?:,\s*"[^"]*")?\)', '"valid_id"', code)
+    code = re.sub(r"os\.getenv\('TEST_\w+ID'(?:,\s*'[^']*')?\)", '"valid_id"', code)
+    return code
+
+
 def _save_and_print(code: str, filename: str):
+    code = _cleanup_test_code(code)
     os.makedirs("output", exist_ok=True)
     output_path = f"output/test_{filename}.py"
     with open(output_path, "w", encoding="utf-8") as f:

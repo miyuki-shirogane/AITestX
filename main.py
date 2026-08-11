@@ -12,6 +12,7 @@ load_dotenv()
 from src.generator.retriever import TestCaseRetriever
 from src.generator.generator import TestCaseGenerator
 from src.generator.swagger import parse_swagger
+from src.generator.deps import analyze as analyze_deps
 from src.agent.healer import heal_directory
 from src.orchestrator import orchestrate
 
@@ -154,6 +155,23 @@ def cmd_swagger(source: str):
     print(f"增量更新: python main.py swagger <源> --diff")
 
 
+def cmd_deps(swagger_path: str = "target_service/solgrid-friend-full.json"):
+    """分析 Swagger 接口依赖关系"""
+    deps = analyze_deps(swagger_path)
+
+    print(f"{'接口':<60} {'参数':<20} {'上游接口'}")
+    print("-" * 110)
+    for d in deps:
+        for p in d["params"]:
+            upstream = p["upstream"]["path"] if p["upstream"] else "—"
+            print(f"{d['path']:<60} {p['name']:<20} {upstream}")
+
+    # 统计
+    has_dep = sum(1 for d in deps if any(p["upstream"] for p in d["params"]))
+    total = len(deps)
+    print(f"\n{has_dep}/{total} 个接口有上游依赖")
+
+
 def cmd_heal(target: str = "output"):
     print("=" * 60)
     print("AITestX Phase 2 - 测试执行与自愈")
@@ -195,6 +213,7 @@ def main():
         print("用法:")
         print("  python main.py seed                        # 加载历史用例到知识库")
         print("  python main.py swagger <URL或文件> [--diff]  # 解析 Swagger（--diff 增量更新）")
+        print("  python main.py deps                       # 分析接口上下游依赖关系")
         print("  python main.py generate <文档>              # 生成单个接口的测试用例")
         print("  python main.py batch                       # 批量生成所有接口（断点续传）")
         print("  python main.py heal [target]               # 执行测试并自动修复")
@@ -208,6 +227,9 @@ def main():
     elif cmd == "swagger":
         source = sys.argv[2] if len(sys.argv) > 2 else ""
         cmd_swagger(source)
+    elif cmd == "deps":
+        swagger_path = sys.argv[2] if len(sys.argv) > 2 else "target_service/solgrid-friend-full.json"
+        cmd_deps(swagger_path)
     elif cmd == "generate":
         if len(sys.argv) < 3:
             print("用法: python main.py generate <API文档路径>")

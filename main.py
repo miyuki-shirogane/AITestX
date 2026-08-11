@@ -73,6 +73,7 @@ def _save_and_print(code: str, filename: str):
     code = _validate_imports(code)
     os.makedirs("output", exist_ok=True)
     output_path = f"output/test_{filename}.py"
+    output_path = output_path.replace("-", "_").replace("{", "_").replace("}", "_")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(code)
     print(f"测试用例已生成: {output_path}")

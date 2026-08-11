@@ -13,6 +13,7 @@ from src.generator.retriever import TestCaseRetriever
 from src.generator.generator import TestCaseGenerator
 from src.generator.swagger import parse_swagger
 from src.agent.healer import heal_directory
+from src.orchestrator import orchestrate
 
 
 def cmd_seed(retriever: TestCaseRetriever):
@@ -26,9 +27,16 @@ def cmd_seed(retriever: TestCaseRetriever):
 def _cleanup_test_code(code: str) -> str:
     """清理生成代码中的常见问题"""
     import re
-    # 替换 os.getenv("TEST_XXX_ID") 为占位字符串
-    code = re.sub(r'os\.getenv\("TEST_\w+ID"(?:,\s*"[^"]*")?\)', '"valid_id"', code)
-    code = re.sub(r"os\.getenv\('TEST_\w+ID'(?:,\s*'[^']*')?\)", '"valid_id"', code)
+    # 替换 os.getenv("TEST_XXX_ID") 为 "valid_xxx_id"
+    def _replace_env_id(m):
+        var_name = m.group(1).lower()
+        # 提取关键词: TEST_DESIGN_ID → design, TEST_VALID_DESIGN_ID → design
+        keyword = var_name.replace("test_", "").replace("_id", "").replace("valid_", "").strip("_")
+        if not keyword:
+            keyword = "id"
+        return f'"valid_{keyword}_id"'
+    code = re.sub(r'os\.getenv\("(TEST_\w+)"(?:,\s*"[^"]*")?\)', _replace_env_id, code)
+    code = re.sub(r"os\.getenv\('(TEST_\w+)'(?:,\s*'[^']*')?\)", _replace_env_id, code)
     return code
 
 
@@ -163,6 +171,7 @@ def main():
         print("  python main.py batch                       # 批量生成所有接口（断点续传）")
         print("  python main.py heal [target]               # 执行测试并自动修复")
         print("  python main.py report                      # 生成自愈报告")
+        print("  python main.py orchestrate                 # Phase 3: 上游依赖编排")
         return
     cmd = sys.argv[1]
     if cmd == "seed":
@@ -183,6 +192,8 @@ def main():
         cmd_heal(target)
     elif cmd == "report":
         cmd_report()
+    elif cmd == "orchestrate":
+        orchestrate()
     else:
         print(f"未知命令: {cmd}")
 

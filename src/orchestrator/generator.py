@@ -2,21 +2,19 @@ import os
 
 
 def generate(deps: list[dict], config: dict, output_dir: str = "output") -> str:
-    """生成 conftest.py
-
-    config = {
-        "base_url": "https://api.example.com",
-        "login_path": "/api/v1/user/login",
-        "login_body": {"email": "os.getenv('TEST_EMAIL')", "password": "os.getenv('TEST_PASSWORD')"},
-        "token_path": "data.accessToken",  # jmespath 风格
-    }
-    """
+    """生成 conftest.py fixture，追加到项目根 conftest.py 后面"""
     base_url = config.get("base_url", "http://localhost:8080")
     login_path = config.get("login_path", "/api/v1/user/login")
     token_path = config.get("token_path", "data.accessToken")
 
+    # 读取现有的 conftest.py（保留原有内容）
+    existing = ""
+    if os.path.exists("conftest.py"):
+        with open("conftest.py") as f:
+            existing = f.read().rstrip() + "\n\n"
+
     lines = [
-        '"""Phase 3 自动生成的上游数据 fixture"""',
+        "# === Phase 3 自动生成的上游数据 fixture ===",
         'import os',
         'import pytest',
         'from dotenv import load_dotenv',
@@ -74,9 +72,7 @@ def generate(deps: list[dict], config: dict, output_dir: str = "output") -> str:
             lines.append(f"#   {f}")
         lines.append("")
 
-    content = "\n".join(lines)
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = f"{output_dir}/conftest.py"
-    with open(output_path, "w") as f:
+    content = existing + "\n".join(lines)
+    with open("conftest.py", "w") as f:
         f.write(content)
     return content

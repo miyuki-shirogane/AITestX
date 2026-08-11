@@ -2,16 +2,10 @@ import os
 
 
 def generate(deps: list[dict], config: dict, output_dir: str = "output") -> str:
-    """生成 conftest.py fixture，追加到项目根 conftest.py 后面"""
+    """生成 output/conftest.py，pytest 会自动继承根 conftest.py"""
     base_url = config.get("base_url", "http://localhost:8080")
     login_path = config.get("login_path", "/api/v1/user/login")
     token_path = config.get("token_path", "data.accessToken")
-
-    # 读取现有的 conftest.py（保留原有内容）
-    existing = ""
-    if os.path.exists("conftest.py"):
-        with open("conftest.py") as f:
-            existing = f.read().rstrip() + "\n\n"
 
     lines = [
         "# === Phase 3 自动生成的上游数据 fixture ===",
@@ -72,7 +66,9 @@ def generate(deps: list[dict], config: dict, output_dir: str = "output") -> str:
             lines.append(f"#   {f}")
         lines.append("")
 
-    content = existing + "\n".join(lines)
-    with open("conftest.py", "w") as f:
+    content = "\n".join(lines)
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = f"{output_dir}/conftest.py"
+    with open(output_path, "w") as f:
         f.write(content)
     return content

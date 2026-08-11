@@ -44,7 +44,6 @@ def orchestrate(output_dir: str = "output", swagger_path: str = "target_service/
         else:
             print(f"   {dep['placeholder']} → 未找到匹配")
 
-    print("\n3. 生成 conftest.py（追加到项目根）...")
+    print("\n3. 生成 output/conftest.py...")
     generate(deps, config, output_dir)
-    print(f"   已保存到 conftest.py")
-    print(f"\n💡 修改测试文件：将 xxx = 'valid_yyy' 替换为 fixture 参数 {deps[0]['placeholder']} 即可")
+    print(f"   已保存到 {output_dir}/conftest.py（pytest 自动继承根 conftest.py）")

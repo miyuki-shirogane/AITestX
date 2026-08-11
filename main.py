@@ -43,6 +43,11 @@ def _validate_imports(code: str) -> str:
     if 'f"Bearer {resp' in code or "f'Bearer {resp" in code:
         code = code.replace('f"Bearer {resp["data"]["accessToken"]}"', 'resp["data"]["accessToken"]')
         code = code.replace("f'Bearer {resp['data']['accessToken']}'", "resp['data']['accessToken']")
+    # 通用 Bearer 修复：f"Bearer {xxx}" → xxx
+    if 'f"Bearer {' in code or "f'Bearer {" in code:
+        import re
+        code = re.sub(r'f"Bearer \{(.+?)\}"', r'\1', code)
+        code = re.sub(r"f'Bearer \{(.+?)\}'", r'\1', code)
     return code
 
 

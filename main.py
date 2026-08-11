@@ -24,6 +24,27 @@ def cmd_seed(retriever: TestCaseRetriever):
     retriever.load_seed_data(seed_dir)
 
 
+def _validate_imports(code: str) -> str:
+    """自动补全缺失的 import"""
+    if "pformat" in code and "from pprint import pformat" not in code:
+        code = code.replace("import logging", "from pprint import pformat\nimport logging", 1)
+        if "from pprint" not in code:
+            code = "from pprint import pformat\n" + code
+    if "allure." in code and "import allure" not in code:
+        code = code.replace("import pytest", "import allure\nimport pytest", 1)
+    if "os.getenv" in code and "import os" not in code:
+        code = code.replace("import pytest", "import os\nimport pytest", 1)
+    if "jmespath." in code and "import jmespath" not in code:
+        code = code.replace("import pytest", "import jmespath\nimport pytest", 1)
+    if "io.BytesIO" in code and "import io" not in code:
+        code = code.replace("import pytest", "import io\nimport pytest", 1)
+    # 重复的 f\"Bearer 修复
+    if 'f"Bearer {resp' in code or "f'Bearer {resp" in code:
+        code = code.replace('f"Bearer {resp["data"]["accessToken"]}"', 'resp["data"]["accessToken"]')
+        code = code.replace("f'Bearer {resp['data']['accessToken']}'", "resp['data']['accessToken']")
+    return code
+
+
 def _cleanup_test_code(code: str) -> str:
     """清理生成代码中的常见问题"""
     import re
@@ -48,6 +69,7 @@ def _cleanup_test_code(code: str) -> str:
 
 def _save_and_print(code: str, filename: str):
     code = _cleanup_test_code(code)
+    code = _validate_imports(code)
     os.makedirs("output", exist_ok=True)
     output_path = f"output/test_{filename}.py"
     with open(output_path, "w", encoding="utf-8") as f:

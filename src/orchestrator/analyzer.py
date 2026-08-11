@@ -47,11 +47,15 @@ def analyze(output_dir: str = "output") -> list[dict]:
 
 def _extract_placeholders(content: str) -> list[tuple]:
     """从测试代码中提取占位符，返回 [(placeholder, keyword), ...]"""
+    # 过滤掉非业务 ID 的关键词
+    skip_keywords = {"token", "email", "password", "code", "key", "secret"}
+
     results = []
     for m in re.finditer(r'"valid_(\w+)"', content):
         raw = m.group(1)
-        # 去掉尾部数字: design_id_123 → design_id
         clean = re.sub(r'_\d+$', '', raw)
         keyword = clean.replace("_id", "").strip("_")
+        if keyword in skip_keywords:
+            continue
         results.append((f"valid_{clean}", keyword))
     return results

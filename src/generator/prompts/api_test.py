@@ -40,10 +40,26 @@ def test_auth_api(auth_headers):
     assert_that(resp, has_entries({{"code": 0}}))
 ```
 
+**上游数据获取**：如果接口文档中标注了「上游依赖」，用 fixture 从上游获取真实数据，不要用硬编码占位符。
+```python
+# 示例：designId 来自上游 designs/search
+@pytest.fixture(scope="session")
+def design_id(auth_headers):
+    resp = client.post("/api/v1/user-agent/space/designs/search", data={{"pageIndex": 1, "pageSize": 1}}, headers=auth_headers)
+    items = resp.get("data", {{}}).get("items", [])
+    if items:
+        return items[0]["id"]
+    pytest.skip("无法获取 design_id")
+
+def test_delete_design(auth_headers, design_id):
+    resp = client.delete(f"/api/v1/user-agent/space/designs/{{design_id}}", headers=auth_headers)
+    assert_that(resp, has_entries({{"code": 0}}))
+```
+
 **重要规则**：
-- 测试数据中的业务 ID（如 designId、fileId、locationId）直接用占位字符串，如 `"valid_design_id"`，不要用 `os.getenv("TEST_XXX_ID")`
-- 环境变量只用于认证（TEST_EMAIL、TEST_PASSWORD），不用于业务数据
-- 业务 ID 由 Phase 3 编排器自动替换为真实值
+- 测试数据中的业务 ID 通过 fixture 从上游获取，不要用 `os.getenv("TEST_XXX_ID")` 或硬编码 `"valid_xxx"`
+- 环境变量只用于认证（TEST_EMAIL、TEST_PASSWORD）
+- 如果上游数据获取失败，用 `pytest.skip("无法获取 xxx")` 跳过
 ```"""),
     ("human", """
 请根据以下API文档，生成pytest测试用例。

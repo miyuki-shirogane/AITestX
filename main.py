@@ -86,9 +86,37 @@ def cmd_generate(api_doc_path: str):
         return
     with open(api_doc_path, "r", encoding="utf-8") as f:
         api_doc = f.read()
+
+    # 附加依赖信息
+    deps_info = _get_deps_for_endpoint(api_doc_path)
+    if deps_info:
+        api_doc += f"\n\n## 上游依赖\n{deps_info}"
+
     generator = TestCaseGenerator()
     code = generator.generate(api_doc)
     _save_and_print(code, os.path.splitext(os.path.basename(api_doc_path))[0])
+
+
+def _get_deps_for_endpoint(md_path: str) -> str:
+    """从 markdown 文件名反查 Swagger 路径，获取依赖信息"""
+    try:
+        from src.generator.deps import analyze as analyze_deps
+        deps = analyze_deps("target_service/solgrid-friend-full.json")
+        # 从文件名反推 API 路径
+        name = os.path.basename(md_path).replace(".md", "")
+        for d in deps:
+            api_path = d["path"].replace(" ", "_").replace("/", "_")
+            if api_path in name or name in api_path:
+                if d["params"]:
+                    lines = []
+                    for p in d["params"]:
+                        if p["upstream"]:
+                            lines.append(f"- `{p['name']}` 来自 `{p['upstream']['path']}`")
+                    if lines:
+                        return "\n".join(lines)
+    except Exception:
+        pass
+    return ""
 
 
 def cmd_generate_batch():

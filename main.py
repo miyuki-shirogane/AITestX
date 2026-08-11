@@ -27,16 +27,22 @@ def cmd_seed(retriever: TestCaseRetriever):
 def _cleanup_test_code(code: str) -> str:
     """清理生成代码中的常见问题"""
     import re
-    # 替换 os.getenv("TEST_XXX_ID") 为 "valid_xxx_id"
+    CORE_NOUNS = ["design", "task", "file", "asset", "location", "npc", "agent", "photo", "message", "thread", "room", "house", "preset", "layout", "job", "employment", "notice", "redpacket", "friend", "invitation", "wallet", "adventure", "log", "news", "order", "product", "user", "code", "token"]
+
     def _replace_env_id(m):
-        var_name = m.group(1).lower()
-        # 提取关键词: TEST_DESIGN_ID → design, TEST_VALID_DESIGN_ID → design
-        keyword = var_name.replace("test_", "").replace("_id", "").replace("valid_", "").strip("_")
-        if not keyword:
-            keyword = "id"
-        return f'"valid_{keyword}_id"'
-    code = re.sub(r'os\.getenv\("(TEST_\w+)"(?:,\s*"[^"]*")?\)', _replace_env_id, code)
-    code = re.sub(r"os\.getenv\('(TEST_\w+)'(?:,\s*'[^']*')?\)", _replace_env_id, code)
+        var_name = m.group(1).lower().replace("test_", "")
+        keyword = None
+        for noun in CORE_NOUNS:
+            if noun in var_name:
+                keyword = noun
+                break
+        if keyword:
+            return f'"valid_{keyword}_id"'
+        return m.group(0)  # 不替换，保留原样
+
+    # 只替换 TEST_XXX_ID 结尾的变量
+    code = re.sub(r'os\.getenv\("(TEST_\w+ID)"(?:,\s*"[^"]*")?\)', _replace_env_id, code)
+    code = re.sub(r"os\.getenv\('(TEST_\w+ID)'(?:,\s*'[^']*')?\)", _replace_env_id, code)
     return code
 
 

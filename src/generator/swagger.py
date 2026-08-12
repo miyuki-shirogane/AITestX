@@ -226,8 +226,12 @@ def _schema_to_example(schema: dict, spec: dict = None) -> dict:
             continue
         if isinstance(resolved, dict) and resolved.get("type") == "array":
             items = resolved.get("items", {})
-            if isinstance(items, dict) and items.get("properties"):
-                example[prop] = [_schema_to_example(items, spec)]
+            if isinstance(items, dict):
+                items = _resolve_ref(items.get("$ref", ""), spec) if items.get("$ref") else items
+                if items.get("properties"):
+                    example[prop] = [_schema_to_example(items, spec)]
+                else:
+                    example[prop] = []
             else:
                 example[prop] = []
             continue

@@ -66,14 +66,13 @@ def parse_swagger(source: str, diff_only: bool = False) -> tuple:
                 else:
                     changed += 1
 
-            # 无论是否 diff_only，都检查磁盘文件是否被手动修改过
-            disk_path = f"{save_dir}/{key}"
-            if os.path.exists(disk_path):
-                disk_h = hash_content(open(disk_path).read())
-                old_h = old_hashes.get(key)
-                if old_h and disk_h != old_h and disk_h != h:
-                    user_edited += 1
-                    continue
+                # 检查磁盘上的文件是否被手动修改过
+                disk_path = f"{save_dir}/{key}"
+                if os.path.exists(disk_path):
+                    disk_h = hash_content(open(disk_path).read())
+                    if disk_h != old_h and disk_h != h:
+                        user_edited += 1
+                        continue
 
             results.append({"path": api_path, "doc": doc, "tag": tag, "filename": key})
 
@@ -215,6 +214,23 @@ def _schema_to_example(schema: dict, spec: dict = None) -> dict:
     example = {}
     for prop, prop_schema in schema.get("properties", {}).items():
         resolved = _resolve_ref(prop_schema.get("$ref", ""), spec) if prop_schema.get("$ref") else prop_schema
+        # 处理 oneOf：取第一个 $ref 并解析
+        if "oneOf" in resolved and not resolved.get("type"):
+            for option in resolved["oneOf"]:
+                if isinstance(option, dict) and "$ref" in option:
+                    resolved = _resolve_ref(option["$ref"], spec)
+                    break
+        # 递归生成嵌套对象
+        if isinstance(resolved, dict) and resolved.get("properties"):
+            example[prop] = _schema_to_example(resolved, spec)
+            continue
+        if isinstance(resolved, dict) and resolved.get("type") == "array":
+            items = resolved.get("items", {})
+            if isinstance(items, dict) and items.get("properties"):
+                example[prop] = [_schema_to_example(items, spec)]
+            else:
+                example[prop] = []
+            continue
         stype = _get_schema_type(resolved, spec)
         example_val = resolved.get("example")
         if example_val is not None:

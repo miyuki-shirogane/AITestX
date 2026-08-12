@@ -93,10 +93,10 @@ def cmd_generate(api_doc_path: str):
     with open(api_doc_path, "r", encoding="utf-8") as f:
         api_doc = f.read()
 
-    # 附加依赖信息
+    # 附加依赖信息到 API 文档开头（作为强指令）
     deps_info = _get_deps_for_endpoint(api_doc_path)
     if deps_info:
-        api_doc += f"\n\n## 上游依赖\n{deps_info}"
+        api_doc = f"## ⚠️ 上游依赖（必须遵守）\n{deps_info}\n\n---\n\n{api_doc}"
 
     generator = TestCaseGenerator()
     code = generator.generate(api_doc)

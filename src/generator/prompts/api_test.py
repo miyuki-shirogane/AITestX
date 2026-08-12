@@ -47,7 +47,7 @@ def test_auth_api(auth_headers):
     assert_that(resp, has_entries({{"code": 0}}))
 ```
 
-**上游数据获取**：如果接口文档中标注了「上游依赖」，用 fixture 从上游获取真实数据，不要用硬编码占位符。
+**上游数据获取（最高优先级）**：如果接口文档开头有「⚠️ 上游依赖」标记，必须用 fixture 从上游获取真实数据，绝对不能用硬编码占位符。
 ```python
 # 示例：designId 来自上游 designs/search
 @pytest.fixture(scope="session")
@@ -55,7 +55,7 @@ def design_id(auth_headers):
     resp = client.post("/api/v1/user-agent/space/designs/search", data={{"pageIndex": 1, "pageSize": 1}}, headers=auth_headers)
     items = resp.get("data", {{}}).get("items", [])
     if items:
-        return items[0]["id"]
+        return items[0]["designId"]
     pytest.skip("无法获取 design_id")
 
 def test_delete_design(auth_headers, design_id):
@@ -64,8 +64,7 @@ def test_delete_design(auth_headers, design_id):
 ```
 
 **重要规则**：
-- 测试数据中的业务 ID 通过 fixture 从上游获取，不要用 `os.getenv("TEST_XXX_ID")` 或硬编码 `"valid_xxx"`
-- 认证信息从环境变量 AUTH_URL、AUTH_BODY、AUTH_TOKEN_PATH 读取，不要硬编码登录接口
+- 如果接口文档标注了「上游依赖」，必须生成 fixture 调用上游接口获取真实数据，**禁止**用 `os.getenv` 或 `"valid_xxx"` 占位
 - 如果上游数据获取失败，用 `pytest.skip("无法获取 xxx")` 跳过
 ```"""),
     ("human", """

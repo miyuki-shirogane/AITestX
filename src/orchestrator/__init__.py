@@ -3,14 +3,14 @@ from .matcher import match
 from .generator import generate
 
 
-def orchestrate(output_dir: str = "output", swagger_path: str = "target_service/solgrid-friend-full.json"):
-    """Phase 3 主入口：分析依赖 → 匹配上游 → 生成 fixture
-
-    config 从环境变量读取，不硬编码项目信息
-    """
+def orchestrate(output_dir: str = "output", swagger_path: str = None):
+    """Phase 3 主入口：分析依赖 → 匹配上游 → 生成 fixture"""
     import os
     from dotenv import load_dotenv
     load_dotenv()
+
+    if not swagger_path:
+        swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
 
     config = {
         "base_url": os.getenv("BASE_URL", "https://solgrid-friend-api.rivtower.cc"),

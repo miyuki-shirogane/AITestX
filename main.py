@@ -107,7 +107,8 @@ def _get_deps_for_endpoint(md_path: str) -> str:
     """从 markdown 文件名反查 Swagger 路径，获取依赖信息"""
     try:
         from src.generator.deps import analyze as analyze_deps
-        deps = analyze_deps("target_service/solgrid-friend-full.json")
+        swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
+        deps = analyze_deps(swagger_path)
         # 从文件名反推 API 路径
         name = os.path.basename(md_path).replace(".md", "")
         for d in deps:
@@ -189,8 +190,10 @@ def cmd_swagger(source: str):
     print(f"增量更新: python main.py swagger <源> --diff")
 
 
-def cmd_deps(swagger_path: str = "target_service/solgrid-friend-full.json"):
+def cmd_deps(swagger_path: str = None):
     """分析 Swagger 接口依赖关系"""
+    if not swagger_path:
+        swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
     deps = analyze_deps(swagger_path)
 
     print(f"{'接口':<60} {'参数':<20} {'上游接口'}")
@@ -262,7 +265,7 @@ def main():
         source = sys.argv[2] if len(sys.argv) > 2 else ""
         cmd_swagger(source)
     elif cmd == "deps":
-        swagger_path = sys.argv[2] if len(sys.argv) > 2 else "target_service/solgrid-friend-full.json"
+        swagger_path = sys.argv[2] if len(sys.argv) > 2 else os.getenv("SWAGGER_PATH", "target_service/swagger.json")
         cmd_deps(swagger_path)
     elif cmd == "generate":
         if len(sys.argv) < 3:

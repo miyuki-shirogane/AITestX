@@ -120,19 +120,27 @@ def _get_deps_for_endpoint(md_path: str) -> str:
         swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
         deps = analyze_deps(swagger_path)
         name = os.path.basename(md_path).replace(".md", "")
+        # 找最长匹配（避免 /tasks 匹配到 /tasks/{id}/cancel）
+        best_match = None
+        best_len = 0
         for d in deps:
             api_path = d["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_")
-            if api_path in name or name in api_path:
-                if d["params"]:
-                    lines = []
-                    for p in d["params"]:
-                        if p["upstream"]:
-                            ep = p["upstream"]
-                            lines.append(f"- `{p['name']}` 来自 `{ep['path']}`")
-                            # 生成具体的 fixture 代码指令
-                            lines.append(f"  请生成 fixture 调用 {ep['path']} 获取真实 {p['name']}，字段名参考上方响应结构，禁止用硬编码")
-                    if lines:
-                        return "\n".join(lines)
+            if api_path == name or name == api_path:
+                if len(api_path) > best_len:
+                    best_match = d
+                    best_len = len(api_path)
+            elif api_path in name and len(api_path) > best_len:
+                best_match = d
+                best_len = len(api_path)
+        if best_match and best_match["params"]:
+            lines = []
+            for p in best_match["params"]:
+                if p["upstream"]:
+                    ep = p["upstream"]
+                    lines.append(f"- `{p['name']}` 来自 `{ep['path']}`")
+                    lines.append(f"  请生成 fixture 调用 {ep['path']} 获取真实 {p['name']}，字段名参考上方响应结构，禁止用硬编码")
+            if lines:
+                return "\n".join(lines)
     except Exception:
         pass
     return ""

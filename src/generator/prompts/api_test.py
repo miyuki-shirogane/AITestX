@@ -106,8 +106,15 @@ client = ApiClient(base_url="https://api.example.com")
 
 @pytest.fixture(scope="session")
 def auth_headers():
-    resp = client.post("/api/v1/user/login", data={{"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")}})
-    return {{"Authorization": resp["data"]["accessToken"]}}
+    import json
+    auth_body = json.loads(os.getenv("AUTH_BODY", "{{}}"))
+    auth_url = os.getenv("AUTH_URL", "/api/v1/user/login")
+    resp = client.post(auth_url, data=auth_body)
+    token_path = os.getenv("AUTH_TOKEN_PATH", "data.accessToken").split(".")
+    token = resp
+    for key in token_path:
+        token = token[key]
+    return {{"Authorization": token}}
 ```"""),
     ("human", """
 ## API文档

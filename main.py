@@ -120,7 +120,20 @@ def _get_deps_for_endpoint(md_path: str) -> str:
         swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
         deps = analyze_deps(swagger_path)
         name = os.path.basename(md_path).replace(".md", "")
-        # 找最长匹配（避免 /tasks 匹配到 /tasks/{id}/cancel）
+
+        # 读取上游 API 的文档内容
+        upstream_docs = {}
+        save_dir = "target_service/api"
+        for d in deps:
+            for p in d["params"]:
+                if p["upstream"]:
+                    ep_path = p["upstream"]["path"]
+                    safe_name = ep_path.replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_").strip("_")
+                    doc_path = f"{save_dir}/{safe_name}.md"
+                    if os.path.exists(doc_path) and safe_name not in upstream_docs:
+                        with open(doc_path) as f:
+                            upstream_docs[safe_name] = f.read()
+
         best_match = None
         best_len = 0
         for d in deps:
@@ -137,8 +150,16 @@ def _get_deps_for_endpoint(md_path: str) -> str:
             for p in best_match["params"]:
                 if p["upstream"]:
                     ep = p["upstream"]
+                    ep_safe = ep["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_").strip("_")
                     lines.append(f"- `{p['name']}` 来自 `{ep['path']}`")
-                    lines.append(f"  请生成 fixture 调用 {ep['path']} 获取真实 {p['name']}，字段名参考上方响应结构，禁止用硬编码")
+                    lines.append(f"  请生成 fixture 调用此上游接口获取真实 {p['name']}")
+                    # 追加上游接口的文档
+                    if ep_safe in upstream_docs:
+                        lines.append(f"  上游接口文档：")
+                        for doc_line in upstream_docs[ep_safe].split("\n"):
+                            if doc_line.strip():
+                                lines.append(f"  {doc_line}")
+                        lines.append("")
             if lines:
                 return "\n".join(lines)
     except Exception:

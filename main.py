@@ -39,7 +39,9 @@ def _validate_imports(code: str) -> str:
         code = code.replace("import pytest", "import jmespath\nimport pytest", 1)
     if "io.BytesIO" in code and "import io" not in code:
         code = code.replace("import pytest", "import io\nimport pytest", 1)
-    # 重复的 f\"Bearer 修复
+    # 修复 hamcrest 不存在的 matcher
+    code = code.replace("empty_string()", "empty()")
+    # 重复的 f"Bearer 修复
     if 'f"Bearer {resp' in code or "f'Bearer {resp" in code:
         code = code.replace('f"Bearer {resp["data"]["accessToken"]}"', 'resp["data"]["accessToken"]')
         code = code.replace("f'Bearer {resp['data']['accessToken']}'", "resp['data']['accessToken']")

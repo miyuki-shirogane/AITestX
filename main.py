@@ -4,6 +4,7 @@
 import os
 import sys
 import json
+import glob
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -125,7 +126,6 @@ def _get_deps_for_endpoint(md_path: str) -> str:
 
 
 def cmd_generate_batch():
-    import glob
     md_files = sorted(glob.glob("target_service/api/*.md"))
     if not md_files:
         print("没有找到 API 文档，请先运行 python main.py swagger")
@@ -187,6 +187,13 @@ def cmd_swagger(source: str):
         with open(doc_path, "w", encoding="utf-8") as f:
             f.write(api["doc"])
         print(f"  [{api['tag']}] {api['path']} → {doc_path}")
+
+    # 清理旧文件（不在当前 spec 中的）
+    current_files = {f"{save_dir}/{api['filename']}" for api in apis}
+    for old_file in glob.glob(f"{save_dir}/*.md"):
+        if old_file not in current_files:
+            os.remove(old_file)
+            print(f"  🗑 清理旧文件: {old_file}")
     print(f"\n文档已保存到 {save_dir}/")
     print(f"批量生成: python main.py batch")
     print(f"增量更新: python main.py swagger <源> --diff")

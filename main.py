@@ -109,10 +109,9 @@ def _get_deps_for_endpoint(md_path: str) -> str:
         from src.generator.deps import analyze as analyze_deps
         swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
         deps = analyze_deps(swagger_path)
-        # 从文件名反推 API 路径
         name = os.path.basename(md_path).replace(".md", "")
         for d in deps:
-            api_path = d["path"].replace(" ", "_").replace("/", "_")
+            api_path = d["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_")
             if api_path in name or name in api_path:
                 if d["params"]:
                     lines = []
@@ -175,9 +174,13 @@ def cmd_swagger(source: str):
     apis, stats = parse_swagger(source, diff_only=diff_only)
     print(f"解析到 {stats['total']} 个接口", end="")
     if diff_only:
-        print(f" (变更: {stats['changed']}, 新增: {stats['new']}, 未变: {stats['unchanged']})")
+        print(f" (变更: {stats['changed']}, 新增: {stats['new']}, 未变: {stats['unchanged']}, 手动修改跳过: {stats.get('user_edited', 0)})")
     else:
-        print()
+        user_edited = stats.get('user_edited', 0)
+        if user_edited > 0:
+            print(f" (手动修改跳过: {user_edited} 个)")
+        else:
+            print()
     save_dir = "target_service/api"
     os.makedirs(save_dir, exist_ok=True)
     for api in apis:

@@ -40,6 +40,8 @@ def parse_swagger(source: str, diff_only: bool = False) -> tuple:
     changed = 0
     unchanged = 0
     new_count = 0
+    user_edited = 0
+    save_dir = "target_service/api"
 
     for path, methods in spec.get("paths", {}).items():
         for method in ["get", "post", "put", "delete", "patch"]:
@@ -64,10 +66,19 @@ def parse_swagger(source: str, diff_only: bool = False) -> tuple:
                 else:
                     changed += 1
 
+            # 无论是否 diff_only，都检查磁盘文件是否被手动修改过
+            disk_path = f"{save_dir}/{key}"
+            if os.path.exists(disk_path):
+                disk_h = hash_content(open(disk_path).read())
+                old_h = old_hashes.get(key)
+                if old_h and disk_h != old_h and disk_h != h:
+                    user_edited += 1
+                    continue
+
             results.append({"path": api_path, "doc": doc, "tag": tag, "filename": key})
 
     save_hashes(new_hashes)
-    return results, {"total": len(results), "changed": changed, "new": new_count, "unchanged": unchanged}
+    return results, {"total": len(results), "changed": changed, "new": new_count, "unchanged": unchanged, "user_edited": user_edited}
 
 
 def _load_spec(source: str) -> dict:

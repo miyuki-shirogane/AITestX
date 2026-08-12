@@ -61,7 +61,7 @@ def analyze(swagger_path: str) -> list[dict]:
 def _build_provider_index(spec: dict) -> dict:
     """建立关键词到提供者接口的索引"""
     providers = {}
-    action_words = ["delete", "cancel", "accept", "reject", "remove", "submit", "proposal"]
+    action_words = ["delete", "cancel", "accept", "reject", "remove", "submit"]
 
     for path, methods in spec.get("paths", {}).items():
         path_lower = path.lower()
@@ -74,8 +74,8 @@ def _build_provider_index(spec: dict) -> dict:
                 continue
             op = methods[method]
 
-            # 检查响应是否包含 id 或列表
-            has_id = _response_has_id(op, spec)
+            # 检查响应是否包含 id 或 token 字段
+            has_id = _response_has_id(op, spec) or _response_has_token(op, spec)
             has_list = _response_has_list(op, spec)
 
             if not (has_id or has_list):
@@ -96,15 +96,19 @@ def _build_provider_index(spec: dict) -> dict:
 
 
 def _extract_body_params(op: dict, spec: dict) -> list[str]:
-    """从请求体提取带 Id 后缀的字段名"""
+    """从请求体提取需要上游数据的字段（Id、Token、Key 等后缀）"""
     params = []
     req_body = op.get("requestBody", {})
     content = req_body.get("content", {}).get("application/json", {})
     schema = content.get("schema", {})
     schema = _resolve_ref(schema, spec)
-    for prop_name in schema.get("properties", {}):
-        if prop_name.lower().endswith("id"):
-            params.append(prop_name)
+    for prop_name, prop_schema in schema.get("properties", {}).items():
+        name_lower = prop_name.lower()
+        # Id 后缀或 Token/Key 等需要上游提供的字段
+        if name_lower.endswith(("id", "token", "key", "code")):
+            # 排除简单类型（如 email、password 等）
+            if prop_schema.get("type") == "string" and "format" not in str(prop_schema):
+                params.append(prop_name)
     return params
 
 
@@ -115,7 +119,7 @@ def _extract_keyword(param_name: str) -> str:
     if name.endswith("id"):
         name = name[:-2]
     # 只取第一个有意义的词
-    for word in ["npc", "friend", "design", "task", "location", "asset", "photo", "agent"]:
+    for word in ["npc", "friend", "design", "task", "location", "asset", "photo", "agent", "proposal", "token"]:
         if word in name:
             return word
     return name
@@ -166,6 +170,69 @@ def _find_provider(keyword: str, providers: dict, exclude_path: str) -> dict:
 
 
 def _response_has_id(op: dict, spec: dict) -> bool:
+    for code, resp in op.get("responses", {}).items():
+        if not code.startswith("2"):
+            continue
+        schema = resp.get("content", {}).get("application/json", {}).get("schema", {})
+        return _schema_has_id(_resolve_ref(schema, spec), spec)
+    return False
+
+
+def _schema_has_id(schema: dict, spec: dict = None) -> bool:
+    if not isinstance(schema, dict):
+        return False
+    if "$ref" in schema and spec:
+        schema = _resolve_ref(schema, spec)
+    for prop_name, prop_schema in schema.get("properties", {}).items():
+        if "id" in prop_name.lower():
+            return True
+        if isinstance(prop_schema, dict):
+            if _schema_has_id(prop_schema, spec):
+                return True
+    if "oneOf" in schema:
+        for option in schema["oneOf"]:
+            if isinstance(option, dict) and _schema_has_id(option, spec):
+                return True
+    return False
+
+
+def _response_has_token(op: dict, spec: dict) -> bool:
+    for code, resp in op.get("responses", {}).items():
+        if not code.startswith("2"):
+            continue
+        schema = resp.get("content", {}).get("application/json", {}).get("schema", {})
+        return _schema_has_token(_resolve_ref(schema, spec), spec)
+    return False
+
+
+def _schema_has_token(schema: dict, spec: dict = None) -> bool:
+    if not isinstance(schema, dict):
+        return False
+    if "$ref" in schema and spec:
+        schema = _resolve_ref(schema, spec)
+    for prop_name, prop_schema in schema.get("properties", {}).items():
+        if prop_name.lower().endswith("token"):
+            return True
+        if isinstance(prop_schema, dict):
+            if _schema_has_token(prop_schema, spec):
+                return True
+            if "oneOf" in prop_schema:
+                for option in prop_schema["oneOf"]:
+                    if isinstance(option, dict):
+                        if "$ref" in option and spec:
+                            resolved = _resolve_ref(option["$ref"], spec)
+                            if _schema_has_token(resolved, spec):
+                                return True
+    if "oneOf" in schema:
+        for option in schema["oneOf"]:
+            if isinstance(option, dict):
+                if _schema_has_token(option, spec):
+                    return True
+                if "$ref" in option and spec:
+                    resolved = _resolve_ref(option["$ref"], spec)
+                    if _schema_has_token(resolved, spec):
+                        return True
+    return False
     for code, resp in op.get("responses", {}).items():
         if not code.startswith("2"):
             continue

@@ -14,7 +14,6 @@ from src.generator.generator import TestCaseGenerator
 from src.generator.swagger import parse_swagger
 from src.generator.deps import analyze as analyze_deps
 from src.agent.healer import heal_directory
-from src.orchestrator import orchestrate
 
 
 def cmd_seed(retriever: TestCaseRetriever):
@@ -258,7 +257,6 @@ def main():
         print("  python main.py batch                       # 批量生成所有接口（断点续传）")
         print("  python main.py heal [target]               # 执行测试并自动修复")
         print("  python main.py report                      # 生成自愈报告")
-        print("  python main.py orchestrate                 # Phase 3: 上游依赖编排")
         return
     cmd = sys.argv[1]
     if cmd == "seed":
@@ -282,8 +280,6 @@ def main():
         cmd_heal(target)
     elif cmd == "report":
         cmd_report()
-    elif cmd == "orchestrate":
-        orchestrate()
     else:
         print(f"未知命令: {cmd}")
 

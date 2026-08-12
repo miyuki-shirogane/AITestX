@@ -47,13 +47,15 @@ def test_auth_api(auth_headers):
     assert_that(resp, has_entries({{"code": 0}}))
 ```
 
-**上游数据获取（最高优先级）**：如果接口文档开头有「⚠️ 上游依赖」标记，必须用 fixture 从上游获取真实数据，绝对不能用硬编码占位符。
+**上游数据获取（最高优先级）**：如果接口文档开头有「⚠️ 上游依赖」标记，必须用 fixture 从上游获取真实数据。
+**嵌套提取必须用 jmespath.search()，禁止链式 .get().get()**。
 ```python
-# 示例：designId 来自上游 designs/search
+import jmespath
+
 @pytest.fixture(scope="session")
 def design_id(auth_headers):
     resp = client.post("/api/v1/user-agent/space/designs/search", data={{"pageIndex": 1, "pageSize": 1}}, headers=auth_headers)
-    items = resp.get("data", {{}}).get("items", [])
+    items = jmespath.search("data.items", resp) or []
     if items:
         return items[0]["designId"]
     pytest.skip("无法获取 design_id")

@@ -36,6 +36,17 @@ def analyze(swagger_path: str) -> list[dict]:
                     "upstream": upstream,
                 })
 
+            # 提取请求体参数（带 Id 后缀的字段）
+            body_params = _extract_body_params(op, spec)
+            for p in body_params:
+                keyword = _extract_keyword(p)
+                upstream = _find_provider(keyword, providers, path)
+                params.append({
+                    "name": p,
+                    "keyword": keyword,
+                    "upstream": upstream,
+                })
+
             results.append({
                 "path": f"{method.upper()} {path}",
                 "tag": (op.get("tags") or ["未分类"])[0],
@@ -82,6 +93,19 @@ def _build_provider_index(spec: dict) -> dict:
                 })
 
     return providers
+
+
+def _extract_body_params(op: dict, spec: dict) -> list[str]:
+    """从请求体提取带 Id 后缀的字段名"""
+    params = []
+    req_body = op.get("requestBody", {})
+    content = req_body.get("content", {}).get("application/json", {})
+    schema = content.get("schema", {})
+    schema = _resolve_ref(schema, spec)
+    for prop_name in schema.get("properties", {}):
+        if prop_name.lower().endswith("id"):
+            params.append(prop_name)
+    return params
 
 
 def _extract_keyword(param_name: str) -> str:

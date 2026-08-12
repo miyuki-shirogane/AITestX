@@ -117,7 +117,10 @@ def _get_deps_for_endpoint(md_path: str) -> str:
                     lines = []
                     for p in d["params"]:
                         if p["upstream"]:
-                            lines.append(f"- `{p['name']}` 来自 `{p['upstream']['path']}`")
+                            ep = p["upstream"]
+                            lines.append(f"- `{p['name']}` 来自 `{ep['path']}`")
+                            # 生成具体的 fixture 代码指令
+                            lines.append(f"  请生成 fixture 调用 {ep['path']} 获取真实 {p['name']}，字段名参考上方响应结构，禁止用硬编码")
                     if lines:
                         return "\n".join(lines)
     except Exception:

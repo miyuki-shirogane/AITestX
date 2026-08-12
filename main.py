@@ -99,15 +99,6 @@ def cmd_generate(api_doc_path: str):
 
     generator = TestCaseGenerator()
     code = generator.generate(api_doc)
-
-    # 验证：如果标注了上游依赖，检查生成的代码是否真的调用了上游接口
-    if deps_info:
-        for _ in range(3):
-            if _verify_upstream_fixture(code, deps_info):
-                break
-            api_doc = f"## 🚨 你上一次生成的代码没有包含上游 fixture！必须生成 fixture 调用上游接口获取真实数据！\n{deps_info}\n\n---\n\n{api_doc}"
-            code = generator.generate(api_doc)
-
     _save_and_print(code, os.path.splitext(os.path.basename(api_doc_path))[0])
 
 

@@ -93,14 +93,33 @@ def cmd_generate(api_doc_path: str):
     with open(api_doc_path, "r", encoding="utf-8") as f:
         api_doc = f.read()
 
-    # 附加依赖信息到 API 文档开头（作为强指令）
     deps_info = _get_deps_for_endpoint(api_doc_path)
     if deps_info:
         api_doc = f"## ⚠️ 上游依赖（必须遵守）\n{deps_info}\n\n---\n\n{api_doc}"
 
     generator = TestCaseGenerator()
     code = generator.generate(api_doc)
+
+    # 验证：如果标注了上游依赖，检查生成的代码是否真的调用了上游接口
+    if deps_info:
+        for _ in range(3):
+            if _verify_upstream_fixture(code, deps_info):
+                break
+            api_doc = f"## 🚨 你上一次生成的代码没有包含上游 fixture！必须生成 fixture 调用上游接口获取真实数据！\n{deps_info}\n\n---\n\n{api_doc}"
+            code = generator.generate(api_doc)
+
     _save_and_print(code, os.path.splitext(os.path.basename(api_doc_path))[0])
+
+
+def _verify_upstream_fixture(code: str, deps_info: str) -> bool:
+    """检查生成的代码是否包含上游 API 调用"""
+    import re
+    upstream_paths = re.findall(r'来自 `([^`]+)`', deps_info)
+    for path in upstream_paths:
+        keyword = path.replace(" ", "/").split("/")[-1].replace("-", "_")
+        if keyword not in code and keyword.replace("_", "-") not in code:
+            return False
+    return True
 
 
 def _get_deps_for_endpoint(md_path: str) -> str:

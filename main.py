@@ -139,7 +139,7 @@ def _get_deps_for_endpoint(md_path: str) -> str:
         best_match = None
         best_len = 0
         for d in deps:
-            api_path = d["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_")
+            api_path = d["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_").strip("_")
             if api_path == name or name == api_path:
                 if len(api_path) > best_len:
                     best_match = d
@@ -155,13 +155,17 @@ def _get_deps_for_endpoint(md_path: str) -> str:
                     ep_safe = ep["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_").strip("_")
                     lines.append(f"- `{p['name']}` 来自 `{ep['path']}`")
                     lines.append(f"  请生成 fixture 调用此上游接口获取真实 {p['name']}")
-                    # 追加上游接口的文档
                     if ep_safe in upstream_docs:
-                        lines.append(f"  上游接口文档：")
-                        for doc_line in upstream_docs[ep_safe].split("\n"):
-                            if doc_line.strip():
-                                lines.append(f"  {doc_line}")
-                        lines.append("")
+                        # 不追加上游文档（太长），只保留路径
+                        pass
+                    # 递归：上游接口自己的依赖
+                    ep_doc_path = f"{save_dir}/{ep_safe}.md"
+                    if os.path.exists(ep_doc_path):
+                        ep_deps = _get_deps_for_endpoint(ep_doc_path)
+                        if ep_deps:
+                            for line in ep_deps.split("\n"):
+                                if line.startswith("- `"):
+                                    lines.append(f"  {line}（上游的上游）")
             if lines:
                 return "\n".join(lines)
     except Exception:

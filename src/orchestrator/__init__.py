@@ -13,9 +13,10 @@ def orchestrate(output_dir: str = "output", swagger_path: str = None):
         swagger_path = os.getenv("SWAGGER_PATH", "target_service/swagger.json")
 
     config = {
-        "base_url": os.getenv("BASE_URL", "https://solgrid-friend-api.rivtower.cc"),
-        "login_path": os.getenv("LOGIN_PATH", "/api/v1/user/login"),
-        "token_path": os.getenv("TOKEN_PATH", "data.accessToken"),
+        "base_url": os.getenv("BASE_URL", "http://localhost:8080"),
+        "auth_url": os.getenv("AUTH_URL", "/api/v1/user/login"),
+        "auth_body": os.getenv("AUTH_BODY", '{"email": "test@example.com", "password": "test"}'),
+        "token_path": os.getenv("AUTH_TOKEN_PATH", "data.accessToken"),
     }
 
     print("=" * 60)

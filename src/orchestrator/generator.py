@@ -3,13 +3,16 @@ import os
 
 def generate(deps: list[dict], config: dict, output_dir: str = "output") -> str:
     """生成 output/conftest.py，pytest 会自动继承根 conftest.py"""
+    import json
     base_url = config.get("base_url", "http://localhost:8080")
-    login_path = config.get("login_path", "/api/v1/user/login")
+    auth_url = config.get("auth_url", "/api/v1/user/login")
+    auth_body = config.get("auth_body", '{"email": "test@example.com", "password": "test"}')
     token_path = config.get("token_path", "data.accessToken")
 
     lines = [
         "# === Phase 3 自动生成的上游数据 fixture ===",
         'import os',
+        'import json',
         'import pytest',
         'from dotenv import load_dotenv',
         'from src.api_client import ApiClient',
@@ -21,11 +24,13 @@ def generate(deps: list[dict], config: dict, output_dir: str = "output") -> str:
         '@pytest.fixture(scope="session")',
         'def auth_headers():',
         '    client = ApiClient(base_url=BASE_URL)',
-        f'    resp = client.post("{login_path}", data={{',
-        '        "email": os.getenv("TEST_EMAIL"),',
-        '        "password": os.getenv("TEST_PASSWORD"),',
-        '    })',
-        f'    return {{"Authorization": resp["{token_path.replace(".", "\"][\"")}"]}}',
+        f'    auth_body = json.loads(os.getenv("AUTH_BODY", \'{auth_body}\'))',
+        f'    resp = client.post(os.getenv("AUTH_URL", "{auth_url}"), data=auth_body)',
+        f'    token_path = os.getenv("AUTH_TOKEN_PATH", "{token_path}").split(".")',
+        '    token = resp',
+        '    for key in token_path:',
+        '        token = token[key]',
+        '    return {"Authorization": token}',
         '',
     ]
 

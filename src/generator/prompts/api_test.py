@@ -26,8 +26,15 @@ client = ApiClient(base_url="https://api.example.com")
 
 @pytest.fixture(scope="session")
 def auth_headers():
-    resp = client.post("/api/v1/user/login", data={{"email": os.getenv("TEST_EMAIL"), "password": os.getenv("TEST_PASSWORD")}})
-    return {{"Authorization": resp["data"]["accessToken"]}}  # token 已含 Bearer 前缀
+    import json
+    auth_body = json.loads(os.getenv("AUTH_BODY", "{{}}"))
+    auth_url = os.getenv("AUTH_URL", "/api/v1/user/login")
+    resp = client.post(auth_url, data=auth_body)
+    token_path = os.getenv("AUTH_TOKEN_PATH", "data.accessToken").split(".")
+    token = resp
+    for key in token_path:
+        token = token[key]
+    return {{"Authorization": token}}  # token 已含 Bearer 前缀
 
 def test_public_api():
     resp = client.get("/api/public")
@@ -58,7 +65,7 @@ def test_delete_design(auth_headers, design_id):
 
 **重要规则**：
 - 测试数据中的业务 ID 通过 fixture 从上游获取，不要用 `os.getenv("TEST_XXX_ID")` 或硬编码 `"valid_xxx"`
-- 环境变量只用于认证（TEST_EMAIL、TEST_PASSWORD）
+- 认证信息从环境变量 AUTH_URL、AUTH_BODY、AUTH_TOKEN_PATH 读取，不要硬编码登录接口
 - 如果上游数据获取失败，用 `pytest.skip("无法获取 xxx")` 跳过
 ```"""),
     ("human", """

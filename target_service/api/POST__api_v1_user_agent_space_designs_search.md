@@ -33,7 +33,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/space/designs/sear
     "items": [
       {
         "designId": "string",
-        "sourceType": 0,
+        "sourceType": 1,
         "displayName": "string",
         "designConcept": "string",
         "resultFileId": "string",
@@ -42,8 +42,8 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/space/designs/sear
       }
     ],
     "total": 0,
-    "pageIndex": 0,
-    "pageSize": 0
+    "pageIndex": 1,
+    "pageSize": 10
   }
 }
 ```

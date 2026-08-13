@@ -1,7 +1,5 @@
 # 为当前登录用户立即应用房间设计。
 
-> 上游接口 `designs/search` 查询时使用 `designType=2`（Room）
-
 POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/space/room-design
 
 所属模块: Spaces

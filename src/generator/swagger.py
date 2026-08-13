@@ -263,4 +263,9 @@ def _schema_to_example(schema: dict, spec: dict = None) -> dict:
             example[prop] = True
         else:
             example[prop] = "string"
+    # 特殊字段默认值
+    if "pageIndex" in example:
+        example["pageIndex"] = 1
+    if "pageSize" in example:
+        example["pageSize"] = 10
     return example

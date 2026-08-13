@@ -35,6 +35,8 @@ def _validate_imports(code: str) -> str:
         code = code.replace("import pytest", "import allure\nimport pytest", 1)
     if "os.getenv" in code and "import os" not in code:
         code = code.replace("import pytest", "import os\nimport pytest", 1)
+    if "json." in code and "import json" not in code:
+        code = code.replace("import pytest", "import json\nimport pytest", 1)
     if "jmespath." in code and "import jmespath" not in code:
         code = code.replace("import pytest", "import jmespath\nimport pytest", 1)
     if "io.BytesIO" in code and "import io" not in code:

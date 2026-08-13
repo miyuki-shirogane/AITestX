@@ -41,6 +41,7 @@ def parse_swagger(source: str, diff_only: bool = False) -> tuple:
     unchanged = 0
     new_count = 0
     user_edited = 0
+    user_edited_keys = set()
     save_dir = "target_service/api"
 
     for path, methods in spec.get("paths", {}).items():
@@ -66,18 +67,20 @@ def parse_swagger(source: str, diff_only: bool = False) -> tuple:
                 else:
                     changed += 1
 
-                # 检查磁盘上的文件是否被手动修改过
-                disk_path = f"{save_dir}/{key}"
-                if os.path.exists(disk_path):
-                    disk_h = hash_content(open(disk_path).read())
-                    if disk_h != old_h and disk_h != h:
-                        user_edited += 1
-                        continue
+            # 无论是否 diff_only，都保护手动修改过的文件
+            disk_path = f"{save_dir}/{key}"
+            if os.path.exists(disk_path):
+                disk_h = hash_content(open(disk_path).read())
+                old_h = old_hashes.get(key)
+                if old_h and disk_h != old_h and disk_h != h:
+                    user_edited += 1
+                    user_edited_keys.add(key)
+                    continue
 
             results.append({"path": api_path, "doc": doc, "tag": tag, "filename": key})
 
     save_hashes(new_hashes)
-    return results, {"total": len(results), "changed": changed, "new": new_count, "unchanged": unchanged, "user_edited": user_edited}
+    return results, {"total": len(results), "changed": changed, "new": new_count, "unchanged": unchanged, "user_edited": user_edited, "user_edited_keys": user_edited_keys}
 
 
 def _load_spec(source: str) -> dict:

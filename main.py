@@ -251,10 +251,11 @@ def cmd_swagger(source: str):
             f.write(api["doc"])
         print(f"  [{api['tag']}] {api['path']} → {doc_path}")
 
-    # 清理旧文件（不在当前 spec 中的）
+    # 清理旧文件（不在当前 spec 中的，但保护手动修改过的）
     current_files = {f"{save_dir}/{api['filename']}" for api in apis}
+    user_edited_keys = stats.get("user_edited_keys", set())
     for old_file in glob.glob(f"{save_dir}/*.md"):
-        if old_file not in current_files:
+        if old_file not in current_files and os.path.basename(old_file) not in user_edited_keys:
             os.remove(old_file)
             print(f"  🗑 清理旧文件: {old_file}")
     print(f"\n文档已保存到 {save_dir}/")

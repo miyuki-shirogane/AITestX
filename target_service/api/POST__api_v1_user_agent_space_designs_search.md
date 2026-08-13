@@ -8,7 +8,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/space/designs/sear
 
 ```json
 {
-  "designType": 1,
+  "designType": 2,
   "pageIndex": 1,
   "pageSize": 10
 }
@@ -16,7 +16,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/space/designs/sear
 
 字段说明：
 
-- `designType`: object, 可选
+- `designType`: enum: 0=Unknown, 1=House, 2=Room, 可选
 - `pageIndex`: int, 可选
 - `pageSize`: int, 可选
 

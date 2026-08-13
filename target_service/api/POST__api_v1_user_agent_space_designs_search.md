@@ -8,7 +8,7 @@ POST https://solgrid-friend-api.rivtower.cc/api/v1/user-agent/space/designs/sear
 
 ```json
 {
-  "designType": 2,
+  "designType": 1,
   "pageIndex": 1,
   "pageSize": 10
 }

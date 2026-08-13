@@ -183,8 +183,18 @@ def _get_param_type(param: dict, spec: dict = None) -> str:
 def _get_schema_type(schema: dict, spec: dict = None) -> str:
     if not schema:
         return "string"
+    if "oneOf" in schema and spec:
+        for option in schema["oneOf"]:
+            if isinstance(option, dict) and "$ref" in option:
+                schema = _resolve_ref(option["$ref"], spec) or option
+                break
     if "$ref" in schema and spec:
         schema = _resolve_ref(schema["$ref"], spec) or schema
+    if "enum" in schema:
+        names = schema.get("x-enumNames", [])
+        if names:
+            return "enum: " + ", ".join(f"{v}={n}" for v, n in zip(schema["enum"], names))
+        return "enum: " + ", ".join(str(v) for v in schema["enum"])
     stype = schema.get("type", "object")
     if stype == "array":
         items = schema.get("items", {})
@@ -239,6 +249,10 @@ def _schema_to_example(schema: dict, spec: dict = None) -> dict:
         example_val = resolved.get("example")
         if example_val is not None:
             example[prop] = example_val
+        elif "enum" in resolved:
+            # 用第一个非零枚举值
+            vals = resolved["enum"]
+            example[prop] = next((v for v in vals if v != 0), vals[0]) if vals else 0
         elif stype == "int":
             example[prop] = 0
         elif stype == "float":

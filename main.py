@@ -155,19 +155,21 @@ def _get_deps_for_endpoint(md_path: str) -> str:
                     ep_safe = ep["path"].replace(" ", "_").replace("/", "_").replace("-", "_").replace("{", "_").replace("}", "_").strip("_")
                     lines.append(f"- `{p['name']}` 来自 `{ep['path']}`")
                     lines.append(f"  请生成 fixture 调用此上游接口获取真实 {p['name']}")
-                    # 追加上游接口的请求体示例
+                    # 追加上游接口的请求体和响应示例
                     if ep_safe in upstream_docs:
                         doc = upstream_docs[ep_safe]
-                        in_body = False
-                        for doc_line in doc.split("\n"):
-                            if doc_line.strip() == "## 请求体":
-                                in_body = True
-                                continue
-                            if in_body:
-                                if doc_line.startswith("## "):
-                                    break
-                                if doc_line.strip():
+                        for section in ["## 请求体", "## 响应"]:
+                            in_section = False
+                            for doc_line in doc.split("\n"):
+                                if doc_line.strip() == section:
+                                    in_section = True
                                     lines.append(f"  {doc_line}")
+                                    continue
+                                if in_section:
+                                    if doc_line.startswith("## ") and doc_line.strip() != section:
+                                        break
+                                    if doc_line.strip():
+                                        lines.append(f"  {doc_line}")
                     # 递归：上游接口自己的依赖（含请求体）
                     ep_doc_path = f"{save_dir}/{ep_safe}.md"
                     if os.path.exists(ep_doc_path):

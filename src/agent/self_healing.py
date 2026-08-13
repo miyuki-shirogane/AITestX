@@ -89,11 +89,17 @@ def analyze_failure(test_code: str, test_name: str, error_message: str) -> dict:
             content = content.split("```")[1].split("```")[0]
         return json.loads(content)
     except (json.JSONDecodeError, IndexError):
+        # 尝试从文本中提取 can_auto_fix
+        import re
+        match = re.search(r'"can_auto_fix"\s*:\s*(true|false)', result_text)
+        can_fix = match and match.group(1) == "true"
+        match = re.search(r'"fix_description"\s*:\s*"([^"]+)"', result_text)
+        fix_desc = match.group(1) if match else ""
         return {
             "category": "unknown",
             "reason": result_text[:200],
-            "can_auto_fix": False,
-            "fix_description": ""
+            "can_auto_fix": can_fix,
+            "fix_description": fix_desc,
         }
 
 

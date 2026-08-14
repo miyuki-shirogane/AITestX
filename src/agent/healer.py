@@ -225,6 +225,10 @@ def heal_directory(target_dir: str = "output"):
             print(f"下次运行 'python main.py heal' 将从断点继续")
             return checkpoint
         except Exception as e:
+            msg = str(e)
+            if "520" in msg or "504" in msg or "429" in msg:
+                print(f"⏳ API错误，跳过（下次重试）")
+                continue
             print(f"❌ 错误: {e}")
             save_checkpoint(checkpoint)
             save_results(results)

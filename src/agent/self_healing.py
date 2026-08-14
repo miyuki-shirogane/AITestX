@@ -118,7 +118,8 @@ def attempt_fix(test_code: str, test_name: str, error_message: str, analysis: di
 2. 如果实际 code=200 但断言 code=0，改成 code=200
 3. 如果实际 data 是 dict 但断言 instance_of(str)，改成验证 dict 字段
 4. 如果实际错误消息是"用户未找到"但断言"邮箱不能为空"，改成实际消息
-5. 保持原有代码风格、import、装饰器不变
+5. 如果同一个文件里 code 和 statusCode 来回摆动（200 响应用 code，400 用 statusCode），改用自适应断言：`resp.get("code") or resp.get("statusCode")` 或 `resp.get("code", resp.get("statusCode"))`
+6. 保持原有代码风格、import、装饰器不变
 6. 直接输出修复后的完整代码，不要解释
 7. 不要用 markdown 代码块包裹
         """),

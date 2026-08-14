@@ -54,7 +54,7 @@ import jmespath
 
 @pytest.fixture(scope="session")
 def design_id(auth_headers):
-    resp = client.post("/api/v1/user-agent/space/designs/search", data={{"pageIndex": 1, "pageSize": 1}}, headers=auth_headers)
+    resp = client.post("/api/v1/user-agent/space/designs/search", data={{"pageIndex": 1, "pageSize": 10}}, headers=auth_headers)
     items = jmespath.search("data.items", resp) or []
     if items:
         return items[0]["designId"]

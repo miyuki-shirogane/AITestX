@@ -105,6 +105,10 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
                 result["rounds"].append({"round": round_num, "action": f"修复后通过"})
             break
 
+        # 智能重试：检查是否因 409/404 需要换数据
+        if round_num == 1:
+            _smart_retry(file_path, failures)
+
         if round_num == max_rounds:
             result["final_status"] = "needs_manual"
             result["retryable"] = True
@@ -242,7 +246,61 @@ def heal_directory(target_dir: str = "output"):
     return checkpoint
 
 
-def _generate_phase3_report(results: dict):
+def _smart_retry(file_path: str, failures: list):
+    """智能重试：检测 409/404 错误，修改 fixture 遍历数据列表"""
+    import re
+    with open(file_path, "r") as f:
+        code = f.read()
+
+    changed = False
+    for failure in failures:
+        error = failure.get("error", "")
+        # 检测 409 冲突或 404 不存在
+        if "409" in error or "404" in error or "503" in error:
+            # 找到对应的 fixture，把 items[0] 改为遍历
+            code = re.sub(
+                r'items\[0\]\["(\w+)"\]',
+                r'next((item["\1"] for item in items if item.get("\1")), None)',
+                code
+            )
+            # 如果 fixture 里没有遍历，改成遍历
+            if "for item in items" not in code:
+                code = code.replace(
+                    'if items:\n        return items[0]',
+                    'for item in items:\n            return item.get("id", item.get("designId"))\n    if items:\n        return items[0]'
+                )
+            changed = True
+
+    if changed:
+        with open(file_path, "w") as f:
+            f.write(code)
+
+
+def _adaptive_assertion(file_path: str, rounds: list):
+    """检测 code/statusCode 振荡，生成自适应断言"""
+    import re
+    # 检查是否有 code → statusCode 或 statusCode → code 的来回修改
+    code_changes = 0
+    status_changes = 0
+    for rd in rounds:
+        action = rd.get("action", "")
+        if "statusCode" in action and "code" in action:
+            if "改为" in action:
+                code_changes += 1
+        if "code" in action and "statusCode" in action:
+            status_changes += 1
+
+    if code_changes >= 2 or status_changes >= 2:
+        with open(file_path, "r") as f:
+            code = f.read()
+        # 替换 has_entries({"code": ...}) 为自适应断言
+        code = re.sub(
+            r'has_entries\(\{"code":\s*(greater_than\(0\)|equal_to\(\d+\)|400|401|403)\}\)',
+            r'has_entries({"code": \1, "statusCode": \1})',
+            code
+        )
+        with open(file_path, "w") as f:
+            f.write(code)
     """从自愈结果中提取 Phase 3 需要处理的任务"""
     tasks = []
     for file_path, result in results.items():

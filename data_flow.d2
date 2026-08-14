@@ -1,0 +1,20 @@
+direction: right
+
+Phase 1: 智能生成 {
+  Swagger -> Markdown: 解析
+  Markdown -> 上下游关系: 依赖分析
+  上下游关系 -> AI 生成用例: 注入
+  Markdown -> AI 生成用例
+  AI 生成用例 -> 自动修复: 校验
+  自动修复 -> pytest 测试代码
+}
+
+Phase 2: 自动自愈 {
+  pytest 测试代码 -> pytest 运行: 执行
+  pytest 运行 -> 意图分析: 失败
+  意图分析 -> 修正断言值: 意图一致
+  意图分析 -> 标记需人工: 意图不一致
+  修正断言值 -> pytest 运行: 重跑
+}
+
+Phase 1 -> Phase 2

@@ -73,7 +73,7 @@ def test_delete_design(auth_headers, design_id):
 **重要规则**：
 - 如果接口文档标注了「上游依赖」，必须生成 fixture 调用上游接口获取真实数据，**禁止**用 `os.getenv` 或 `"valid_xxx"` 占位
 - 如果上游数据获取失败，用 `pytest.skip("无法获取 xxx")` 跳过
-- 使用 has_entries({{"code": 200}}) 断言响应状态，不要用 statusCode
+- 异常场景测试（参数校验、不存在的ID、无权限等）断言 `code: greater_than(0)` 或 `success: False`，不要断言 `code: 200`
 - 如果响应中有 message 字段，用 contains_string(expected_msg) 断言错误消息，不要只验 instance_of(str)
 - 断言嵌套数据用 jmespath.search("data.token", resp)
 ```"""),

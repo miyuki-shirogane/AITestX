@@ -246,6 +246,10 @@ def heal_directory(target_dir: str = "output"):
     return checkpoint
 
 
+def _generate_phase3_report(results: dict):
+    pass
+
+
 def _smart_retry(file_path: str, failures: list):
     """智能重试：检测 409/404 错误，修改 fixture 遍历数据列表"""
     import re

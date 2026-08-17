@@ -65,6 +65,40 @@ def test_delete_design(auth_headers, design_id):
     assert_that(resp, has_entries({{"code": 0}}))
 ```
 
+**fixture 参数与测试参数化匹配规则（必须遵守）**：
+如果测试用例对某个字段进行了参数化（如 designType），且该字段同时也出现在上游 fixture 的请求体中，则 fixture 必须使用相同的参数化值，**禁止** fixture 写死一个值而测试参数化遍历其他值。
+
+反面示例（❌ 错误）：
+```python
+@pytest.fixture(scope="session")
+def proposal_token(auth_headers):
+    # ❌ 写死了 designType=1，但下游测试参数化了 designType=[0,1,2]
+    data = {{"designType": 1, "messages": [{{"role": "user", "content": "test"}}]}}
+    ...
+
+@pytest.mark.parametrize("design_type", [0, 1, 2])
+def test_create_task(design_type, proposal_token, auth_headers):
+    # ❌ proposal_token 是用 designType=1 创建的，但 designType=0 和 2 时 token 不匹配
+    data = {{"designType": design_type, "proposalToken": proposal_token}}
+    ...
+```
+
+正面示例（✅ 正确）：
+```python
+@pytest.fixture(scope="function")
+def proposal_token(design_type, auth_headers):
+    # ✅ fixture 使用与测试相同的参数化值
+    data = {{"designType": design_type, "messages": [{{"role": "user", "content": "test"}}]}}
+    resp = client.post("/api/v1/user-agent/space/design-proposals", data=data, headers=auth_headers)
+    assert_that(resp, has_entries({{"success": True, "code": 200}}))
+    return resp["data"]["proposalToken"]
+
+@pytest.mark.parametrize("design_type", [0, 1, 2])
+def test_create_task(design_type, proposal_token, auth_headers):
+    data = {{"designType": design_type, "proposalToken": proposal_token}}
+    ...
+```
+
 **通用断言规则**：
 - 根据接口文档的响应示例使用对应字段名（如 code 或 statusCode），不要写死某个字段
 - 如果响应中有 message 字段，用 contains_string(expected_msg) 断言错误消息，不要只验 instance_of(str)
@@ -76,6 +110,7 @@ def test_delete_design(auth_headers, design_id):
 - 异常场景测试（参数校验、不存在的ID、无权限等）断言 `code: greater_than(0)` 或 `success: False`，不要断言 `code: 200`
 - 如果响应中有 message 字段，用 contains_string(expected_msg) 断言错误消息，不要只验 instance_of(str)
 - 断言嵌套数据用 jmespath.search()，示例：`jmespath.search("data.token", resp)`
+- **ApiClient 返回的是 dict，不是 requests.Response**：**禁止**使用 `resp.status_code`、`resp.json()`、`resp.text` 等 requests 原生 API。HTTP 状态码用 `resp["_status"]`，响应体直接用 `resp`（已是解析后的 dict）
 ```"""),
     ("human", """
 请根据以下API文档，生成pytest测试用例。
@@ -103,7 +138,7 @@ API_TEST_RAG_PROMPT = ChatPromptTemplate.from_messages([
 2. 认证用 @pytest.fixture(scope="session") def auth_headers()
 3. 不要创建额外的 client fixture，直接用模块级 client
 4. GET 用 params=，POST 用 data=
-5. 必须 import 所有使用的库：os, pytest, allure, jmespath, logging, hamcrest
+5. 必须 import 所有使用的库：os, pytest, allure, jmespath, logging, hamcrest, pprint
 
 ```python
 from src.api_client import ApiClient
@@ -124,7 +159,14 @@ def auth_headers():
     for key in token_path:
         token = token[key]
     return {{"Authorization": token}}
-```"""),
+```
+
+**重要规则**：
+- **ApiClient 返回的是 dict，不是 requests.Response**：**禁止**使用 `resp.status_code`、`resp.json()`、`resp.text` 等 requests 原生 API。HTTP 状态码用 `resp["_status"]`，响应体直接用 `resp`
+- 断言用 hamcrest assert_that，示例：`assert_that(resp, has_entries({{"code": 200}}))`
+- 异常场景断言 `code: greater_than(0)` 或 `success: False`，不要断言 `code: 200`
+- 如果上游数据获取失败，用 `pytest.skip("无法获取 xxx")` 跳过
+- 如果 fixture 的参数与测试参数化字段重叠，fixture 必须使用相同的参数化值（见 fixture 参数匹配规则）"""),
     ("human", """
 ## API文档
 {api_doc}

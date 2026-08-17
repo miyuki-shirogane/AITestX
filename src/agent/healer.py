@@ -42,7 +42,7 @@ def save_checkpoint(checkpoint):
 def run_single_test(file_path: str) -> tuple:
     """执行单个测试文件，返回 (passed_count, failed_count, failures)"""
     result = subprocess.run(
-        ["pytest", file_path, "-v", "--tb=short", "-q", "--no-header"],
+        [sys.executable, "-m", "pytest", file_path, "-v", "--tb=short", "-q", "--no-header"],
         capture_output=True, text=True, timeout=120
     )
     output = result.stdout + result.stderr
@@ -88,11 +88,12 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
     with open(file_path, "r") as f:
         original_code = f.read()
 
-    # 备份原始代码
     os.makedirs("output/.backup", exist_ok=True)
     backup_path = f"output/.backup/{os.path.basename(file_path)}"
     with open(backup_path, "w") as f:
         f.write(original_code)
+
+    non_fixable = set()
 
     for round_num in range(1, max_rounds + 1):
         passed, failed, failures = run_single_test(file_path)
@@ -105,9 +106,12 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
                 result["rounds"].append({"round": round_num, "action": f"修复后通过"})
             break
 
-        # 智能重试：检查是否因 409/404 需要换数据
+        # 智能重试：程序化修复常见模式
         if round_num == 1:
             _smart_retry(file_path, failures)
+
+        # 自适应断言：检测并修复 code/statusCode 振荡
+        _adaptive_assertion(file_path, result["rounds"])
 
         if round_num == max_rounds:
             result["final_status"] = "needs_manual"
@@ -119,56 +123,83 @@ def heal_file(file_path: str, max_rounds: int = 5) -> dict:
             })
             break
 
-        first_failure = failures[0]
-        test_name = first_failure["test"]
-        error = first_failure["error"]
+        # 过滤掉已确认不可修复的失败，剩余的可尝试修复
+        fixable = [f for f in failures if f["test"] not in non_fixable]
 
-        with open(file_path, "r") as f:
-            current_code = f.read()
-
-        analysis = analyze_failure(current_code[:3000], test_name, error)
-
-        if not analysis.get("can_auto_fix"):
-            retryable = "Connection" in error or "ConnectError" in error or "ConnectionRefused" in error or "Max retries" in error
+        if not fixable:
+            all_conn = all(
+                "Connection" in f.get("error", "") or "ConnectError" in f.get("error", "")
+                or "ConnectionRefused" in f.get("error", "") or "Max retries" in f.get("error", "")
+                for f in failures
+            )
             result["final_status"] = "needs_manual"
-            result["retryable"] = retryable
+            result["retryable"] = all_conn
             result["rounds"].append({
                 "round": round_num,
-                "action": f"无法自动修复: {analysis.get('fix_description', '') or analysis.get('reason', '') or '原因未知'}",
+                "action": f"所有 {len(failures)} 个失败均无法自动修复",
+                "remaining_failures": [f["test"] for f in failures]
+            })
+            break
+
+        fixed_any = False
+        for failure in fixable:
+            test_name = failure["test"]
+            error = failure["error"]
+
+            with open(file_path, "r") as f:
+                current_code = f.read()
+
+            analysis = analyze_failure(current_code[:3000], test_name, error)
+
+            if not analysis.get("can_auto_fix"):
+                non_fixable.add(test_name)
+                result["rounds"].append({
+                    "round": round_num,
+                    "action": f"跳过: {test_name} — {analysis.get('fix_description', '') or analysis.get('reason', '') or '原因未知'}",
+                    "category": analysis.get("category"),
+                    "test": test_name,
+                })
+                continue
+
+            fixed_code = attempt_fix(current_code, test_name, error, analysis)
+            if not fixed_code:
+                continue
+
+            try:
+                compile(fixed_code, file_path, "exec")
+            except SyntaxError as e:
+                result["rounds"].append({
+                    "round": round_num,
+                    "action": f"修复后代码有语法错误: {e}",
+                })
+                continue
+
+            with open(file_path, "w") as f:
+                f.write(fixed_code)
+
+            result["rounds"].append({
+                "round": round_num,
+                "action": f"修复 {test_name}: {analysis.get('fix_description', '')}",
                 "category": analysis.get("category"),
-                "test": test_name,
             })
+            fixed_any = True
             break
 
-        fixed_code = attempt_fix(current_code, test_name, error, analysis)
-        if not fixed_code:
+        if not fixed_any:
+            non_fixable.update(f["test"] for f in fixable)
+            all_conn = all(
+                "Connection" in f.get("error", "") or "ConnectError" in f.get("error", "")
+                or "ConnectionRefused" in f.get("error", "") or "Max retries" in f.get("error", "")
+                for f in failures
+            )
             result["final_status"] = "needs_manual"
-            result["retryable"] = True
+            result["retryable"] = all_conn
             result["rounds"].append({
                 "round": round_num,
-                "action": "修复失败，AI 未返回有效代码",
+                "action": f"本轮无可修复的失败",
+                "remaining_failures": [f["test"] for f in failures]
             })
             break
-
-        try:
-            compile(fixed_code, file_path, "exec")
-        except SyntaxError as e:
-            result["final_status"] = "needs_manual"
-            result["retryable"] = True
-            result["rounds"].append({
-                "round": round_num,
-                "action": f"修复后代码有语法错误: {e}",
-            })
-            break
-
-        with open(file_path, "w") as f:
-            f.write(fixed_code)
-
-        result["rounds"].append({
-            "round": round_num,
-            "action": f"修复 {test_name}: {analysis.get('fix_description', '')}",
-            "category": analysis.get("category"),
-        })
 
     return result
 
@@ -247,73 +278,15 @@ def heal_directory(target_dir: str = "output"):
 
 
 def _generate_phase3_report(results: dict):
-    pass
-
-
-def _smart_retry(file_path: str, failures: list):
-    """智能重试：检测 409/404 错误，修改 fixture 遍历数据列表"""
-    import re
-    with open(file_path, "r") as f:
-        code = f.read()
-
-    changed = False
-    for failure in failures:
-        error = failure.get("error", "")
-        # 检测 409 冲突或 404 不存在
-        if "409" in error or "404" in error or "503" in error:
-            # 找到对应的 fixture，把 items[0] 改为遍历
-            code = re.sub(
-                r'items\[0\]\["(\w+)"\]',
-                r'next((item["\1"] for item in items if item.get("\1")), None)',
-                code
-            )
-            # 如果 fixture 里没有遍历，改成遍历
-            if "for item in items" not in code:
-                code = code.replace(
-                    'if items:\n        return items[0]',
-                    'for item in items:\n            return item.get("id", item.get("designId"))\n    if items:\n        return items[0]'
-                )
-            changed = True
-
-    if changed:
-        with open(file_path, "w") as f:
-            f.write(code)
-
-
-def _adaptive_assertion(file_path: str, rounds: list):
-    """检测 code/statusCode 振荡，生成自适应断言"""
-    import re
-    # 检查是否有 code → statusCode 或 statusCode → code 的来回修改
-    code_changes = 0
-    status_changes = 0
-    for rd in rounds:
-        action = rd.get("action", "")
-        if "statusCode" in action and "code" in action:
-            if "改为" in action:
-                code_changes += 1
-        if "code" in action and "statusCode" in action:
-            status_changes += 1
-
-    if code_changes >= 2 or status_changes >= 2:
-        with open(file_path, "r") as f:
-            code = f.read()
-        # 替换 has_entries({"code": ...}) 为自适应断言
-        code = re.sub(
-            r'has_entries\(\{"code":\s*(greater_than\(0\)|equal_to\(\d+\)|400|401|403)\}\)',
-            r'has_entries({"code": \1, "statusCode": \1})',
-            code
-        )
-        with open(file_path, "w") as f:
-            f.write(code)
     """从自愈结果中提取 Phase 3 需要处理的任务"""
     tasks = []
-    for file_path, result in results.items():
+    for fp, result in results.items():
         if result["final_status"] != "needs_manual" or result.get("retryable"):
             continue
         for r in result.get("rounds", []):
             if r.get("category") in ("upstream_data_needed", "service_bug", "invalid_test_data") or (not r.get("retryable", True)):
                 tasks.append({
-                    "file": os.path.basename(file_path),
+                    "file": os.path.basename(fp),
                     "category": r["category"],
                     "detail": r.get("action", ""),
                     "test": r.get("test", ""),
@@ -330,3 +303,95 @@ def _adaptive_assertion(file_path: str, rounds: list):
         with open(path, "w") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
         print(f"Phase 3 任务清单: {path} ({len(tasks)} 项)")
+
+
+def _smart_retry(file_path: str, failures: list):
+    """智能重试：程序化修复常见 API 响应模式问题"""
+    import re
+    with open(file_path, "r") as f:
+        code = f.read()
+
+    changed = False
+    for failure in failures:
+        error = failure.get("error", "")
+
+        # 409/404/503: fixture 里的数据冲突或不存在，遍历数据列表
+        if "409" in error or "404" in error or "503" in error:
+            code = re.sub(
+                r'items\[0\]\["(\w+)"\]',
+                r'next((item["\1"] for item in items if item.get("\1")), None)',
+                code
+            )
+            if "for item in items" not in code:
+                code = code.replace(
+                    'if items:\n        return items[0]',
+                    'for item in items:\n            return item.get("id", item.get("designId"))\n    if items:\n        return items[0]'
+                )
+            changed = True
+
+    # 主动扫描：修复所有 resp["code"] 和 has_entries({"code": X}) 为自适应断言
+    # 因为 ApiClient 对非 JSON 响应返回 {"_status": N, "_body": ""}
+    if re.search(r'has_entries\(\{"code":\s*\d+', code) or re.search(r'resp\["code"\]', code) or re.search(r'has_entry\("code",\s*\d+', code):
+        # has_entries({"code": 401}) → any_of(has_entry("_status", 401), has_entry("code", 401))
+        code = re.sub(
+            r'has_entries\(\{"code":\s*(\d+)\}\)',
+            r'any_of(has_entry("_status", \1), has_entry("code", \1))',
+            code
+        )
+        # has_entry("code", 401) → any_of(has_entry("_status", 401), has_entry("code", 401))
+        code = re.sub(
+            r'has_entry\("code",\s*(\d+)\)',
+            r'any_of(has_entry("_status", \1), has_entry("code", \1))',
+            code
+        )
+        # resp["code"] → resp.get("_status", resp.get("code"))
+        code = re.sub(
+            r'resp\["code"\]',
+            r'resp.get("_status", resp.get("code"))',
+            code
+        )
+        changed = True
+
+    if changed:
+        with open(file_path, "w") as f:
+            f.write(code)
+
+
+def _adaptive_assertion(file_path: str, rounds: list):
+    """检测 code/statusCode 振荡，生成自适应断言"""
+    import re
+    code_changes = 0
+    status_changes = 0
+    for rd in rounds:
+        action = rd.get("action", "")
+        if "statusCode" in action and "code" in action:
+            if "改为" in action:
+                code_changes += 1
+        if "code" in action and "statusCode" in action:
+            status_changes += 1
+
+    if code_changes >= 2 or status_changes >= 2:
+        with open(file_path, "r") as f:
+            code = f.read()
+        code = re.sub(
+            r'has_entries\(\{"code":\s*(greater_than\(0\)|equal_to\(\d+\)|400|401|403)\}\)',
+            r'has_entries({"code": \1, "statusCode": \1})',
+            code
+        )
+        with open(file_path, "w") as f:
+            f.write(code)
+        return
+
+    # 也主动检测文件中是否混用 code/statusCode
+    with open(file_path, "r") as f:
+        code = f.read()
+    has_code = bool(re.search(r'\["code"\]', code)) or bool(re.search(r'has_entry\("code"', code))
+    has_status = bool(re.search(r'\["statusCode"\]', code)) or bool(re.search(r'has_entry\("statusCode"', code))
+    if has_code and has_status:
+        code = re.sub(
+            r'has_entry\("(code|statusCode)",\s*(greater_than\(0\)|equal_to\(\d+\)|400|401|403)\)',
+            r'any_of(has_entry("code", \2), has_entry("statusCode", \2))',
+            code
+        )
+        with open(file_path, "w") as f:
+            f.write(code)

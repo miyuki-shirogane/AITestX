@@ -10,6 +10,7 @@ API_TEST_PROMPT = ChatPromptTemplate.from_messages([
 4. 不要创建额外的 client fixture，直接用模块级的 client
 5. GET 请求用 params= 传查询参数；POST 用 data= 传请求体
 6. 必须 import 所有使用的库：os, pytest, allure, jmespath, logging 等
+7. 【强制】每次调用 client.post/get/put/delete 后，紧跟着一行 logging.info(f"响应: {pformat(resp)}")，否则 Executor 无法抓取响应体
 
 ```python
 # === 以下 import 必须完整，一个都不能少 ===

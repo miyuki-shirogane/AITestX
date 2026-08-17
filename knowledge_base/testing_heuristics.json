@@ -1,0 +1,29 @@
+{
+  "heuristics": [
+    {
+      "pattern": "KeyError + 响应体有 _status/_body 字段",
+      "cause": "ApiClient 对非 JSON 响应（如 401）包装为 {\"_status\": N, \"_body\": \"\"}，断言用 resp[\"code\"] 但实际没有 code 字段",
+      "fix": "改用 resp.get(\"_status\", resp.get(\"code\"))"
+    },
+    {
+      "pattern": "parametrized 用例部分通过部分失败",
+      "cause": "失败的参数组合通常是 API 实际不支持但文档标注支持的边界值，或者是 AI 生成代码时的枚举全量假设",
+      "fix": "检查失败的参数是否在 API 实际支持范围内，移除不支持的参数化用例"
+    },
+    {
+      "pattern": "同一个字段在 heal 中来回修改",
+      "cause": "断言陷入 code/statusCode 振荡，成功和错误响应用了不同的字段名",
+      "fix": "使用自适应断言：resp.get(\"code\") or resp.get(\"statusCode\")"
+    },
+    {
+      "pattern": "409 Conflict + 创建类接口",
+      "cause": "fixture 取到的数据已存在或被占用，导致创建冲突",
+      "fix": "fixture 遍历数据列表而非固定取 items[0]"
+    },
+    {
+      "pattern": "404 Not Found + 使用 fixture 提供的 ID",
+      "cause": "fixture 取到的数据已被删除或不存在，或者是 fixture 取到的数据列表为空",
+      "fix": "检查 fixture 日志确认上游接口是否返回了有效数据"
+    }
+  ]
+}

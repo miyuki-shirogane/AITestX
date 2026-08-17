@@ -293,12 +293,51 @@ def cmd_heal(target: str = "output"):
 
 def cmd_report():
     from src.agent.healer import load_results, load_checkpoint
+    import subprocess
+
     results = load_results()
     cp = load_checkpoint()
     if not results and not cp.get("processed"):
         print("还没有自愈记录，请先运行 python main.py heal")
         return
+
+    files = sorted(glob.glob("output/test_*.py"))
+    if not files:
+        print("output/ 目录下没有测试文件")
+        return
+
+    print(f"正在运行 {len(files)} 个测试文件...")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest"] + files + ["-v", "--tb=short", "-q"],
+        capture_output=True, text=True, timeout=300
+    )
+    pytest_output = result.stdout + result.stderr
+
+    # 解析每个文件的失败详情
+    import re
+    file_failures = {}
+    current_file = None
+    for line in pytest_output.split("\n"):
+        file_match = re.match(r"^(output/test_\S+\.py)::(\S+)\s+(FAILED|PASSED)", line)
+        if file_match:
+            current_file = file_match.group(1)
+        fail_match = re.match(r"^FAILED\s+(output/test_\S+\.py)::(\S+)", line)
+        if fail_match:
+            fname = fail_match.group(1)
+            tname = fail_match.group(2)
+            if fname not in file_failures:
+                file_failures[fname] = []
+            file_failures[fname].append(tname)
+
     stats = cp.get("stats", {})
+    total_passed = pytest_output.count(" PASSED ")
+    total_failed = pytest_output.count(" FAILED ")
+    # 最后一行 summary 中的数字
+    summary_match = re.search(r"(\d+)\s+failed,\s*(\d+)\s+passed", pytest_output)
+    if summary_match:
+        total_failed = int(summary_match.group(1))
+        total_passed = int(summary_match.group(2))
+
     md = f"""# AITestX Phase 2 自愈报告
 
 > 生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -307,15 +346,56 @@ def cmd_report():
 
 | 指标 | 数量 |
 |------|:---:|
-| 已通过文件 | {len(cp.get('processed', []))} |
-| 全部通过 | {stats.get('passed', 0)} |
-| 修复通过 | {stats.get('fixed', 0)} |
-| 转移到 Phase 3 | {stats.get('failed', 0)} |
+| 测试文件 | {len(files)} |
+| 全部通过 | {total_passed} |
+| 失败 | {total_failed} |
+| 修复通过(heal) | {stats.get('fixed', 0)} |
+| 需人工介入 | {stats.get('failed', 0)} |
+
+## 各文件测试结果
+
+"""
+    for f in files:
+        heal_result = results.get(f, {})
+        heal_status = heal_result.get("final_status", "unknown")
+        if heal_status == "passed":
+            if any("无需修复" in r.get("action", "") for r in heal_result.get("rounds", [])):
+                emoji = "✅"
+            else:
+                emoji = "🔧"
+        elif heal_status == "needs_manual":
+            emoji = "⚠️"
+        else:
+            emoji = "❓"
+
+        failures = file_failures.get(f, [])
+        fname = os.path.basename(f)
+        if failures:
+            md += f"### {emoji} {fname}\n\n"
+            md += f"**失败 {len(failures)} 个:**\n\n"
+            for t in failures:
+                short_name = t.split(".")[-1] if "." in t else t
+                md += f"- `{short_name}`\n"
+            md += "\n"
+        else:
+            md += f"### {emoji} {fname} — 全部通过\n\n"
+
+    md += """## 下一步
+
+- 失败的用例请查看上方 pytest 输出中的错误详情
+- 标记为需人工介入的需要检查业务逻辑或测试数据
+- 可运行 `pytest output/ -v --tb=long` 查看完整错误信息
 """
     report_path = "reports/heal_report.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(md)
+
+    log_path = "reports/heal_pytest.log"
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write(pytest_output)
+
     print(f"报告已生成: {report_path}")
+    print(f"完整 pytest 日志: {log_path}")
 
 
 def main():
@@ -328,6 +408,7 @@ def main():
         print("  python main.py batch                       # 批量生成所有接口（断点续传）")
         print("  python main.py heal [target]               # 执行测试并自动修复")
         print("  python main.py report                      # 生成自愈报告")
+        print("  python main.py analyze                     # 多 Agent 失败用例深度分析")
         return
     cmd = sys.argv[1]
     if cmd == "seed":
@@ -351,6 +432,9 @@ def main():
         cmd_heal(target)
     elif cmd == "report":
         cmd_report()
+    elif cmd == "analyze":
+        from src.agent.analyzers import analyze
+        analyze()
     else:
         print(f"未知命令: {cmd}")
 

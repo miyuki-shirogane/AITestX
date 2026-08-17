@@ -274,6 +274,20 @@ def heal_directory(target_dir: str = "output"):
     print(f"直接通过: {checkpoint['stats']['passed']}")
     print(f"修复通过: {checkpoint['stats']['fixed']}")
     print(f"需人工介入: {checkpoint['stats']['failed']}")
+
+    # 最终运行 pytest 汇总
+    print(f"\n--- 最终 pytest 结果 ---")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest"] + sorted(glob.glob(f"{target_dir}/test_*.py"))
+        + ["-v", "--tb=line", "-q"],
+        capture_output=True, text=True, timeout=300
+    )
+    # 提取最后几行 summary
+    lines = result.stdout.split("\n") + result.stderr.split("\n")
+    summary_lines = [l for l in lines if "failed" in l.lower() or "passed" in l.lower()]
+    for line in summary_lines[-3:]:
+        print(line)
+
     return checkpoint
 
 

@@ -1,0 +1,18 @@
+{
+  "concepts": [
+    {
+      "id": "concept_sourceType",
+      "name": "sourceType 字段",
+      "knowledge": "sourceType 表示设计的生成来源。目前所有设计都是 AI 生成，所以值始终为 1。与请求参数 designType（筛选条件）是两个不同概念。",
+      "applies_to": ["*designs_search*", "*designs*"],
+      "impact": "测试不应断言 sourceType 等于 designType 或任何其他请求参数"
+    },
+    {
+      "id": "concept_designType_validation",
+      "name": "designType 参数校验",
+      "knowledge": "designType 是 FluentValidation 校验的枚举参数。合法值：1=House, 2=Room。值 0=Unknown 虽然在 Swagger 枚举定义中，但实际校验会拒绝。字符串类型的非法值会被 JSON 反序列化阶段拦截，返回的响应格式可能与标准 400 不同。",
+      "applies_to": ["*designs_search*", "*design_proposals*", "*house_construction*"],
+      "impact": "designType=0 应断言 400 而非 200。designType=字符串类型可能返回非标准格式错误。"
+    }
+  ]
+}

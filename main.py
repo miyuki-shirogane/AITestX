@@ -27,6 +27,7 @@ def cmd_seed(retriever: TestCaseRetriever):
 
 def _validate_imports(code: str) -> str:
     """自动补全缺失的 import"""
+    import re
     if "pformat" in code and "from pprint import pformat" not in code:
         code = code.replace("import logging", "from pprint import pformat\nimport logging", 1)
         if "from pprint" not in code:
@@ -49,10 +50,42 @@ def _validate_imports(code: str) -> str:
         code = code.replace("f'Bearer {resp['data']['accessToken']}'", "resp['data']['accessToken']")
     # 通用 Bearer 修复：f"Bearer {xxx}" → xxx
     if 'f"Bearer {' in code or "f'Bearer {" in code:
-        import re
         code = re.sub(r'f"Bearer \{(.+?)\}"', r'\1', code)
         code = re.sub(r"f'Bearer \{(.+?)\}'", r'\1', code)
+    # 注入响应日志：每个 resp = client.XXX(...) 后面如果没有 logging，补一行
+    code = _inject_response_logging(code)
     return code
+
+
+def _inject_response_logging(code: str) -> str:
+    """为每个 client.post/get/delete/put 调用后注入响应日志"""
+    import re
+    lines = code.split('\n')
+    result = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        result.append(line)
+        # 匹配 resp = client.XXX(...) 或 resp = client.XXX(\n...)
+        m = re.match(r'(\s*)resp\s*=\s*client\.\w+\(', line)
+        if m:
+            indent = m.group(1)
+            # 多行调用：找到闭合的 )
+            if '(' in line and ')' not in line.split('(', 1)[1]:
+                j = i + 1
+                while j < len(lines) and ')' not in lines[j]:
+                    result.append(lines[j])
+                    j += 1
+                if j < len(lines):
+                    result.append(lines[j])
+                    i = j
+            # 检查下一行是否已有日志
+            next_line = lines[i + 1] if i + 1 < len(lines) else ''
+            if 'logging.info' not in next_line and 'logging.debug' not in next_line:
+                resp_var = m.group(0).split('=')[0].strip() if '=' in line else 'resp'
+                result.append(f'{indent}logging.info(f"响应: {{pformat({resp_var})}}")')
+        i += 1
+    return '\n'.join(result)
 
 
 def _cleanup_test_code(code: str) -> str:
